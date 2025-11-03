@@ -20,18 +20,18 @@ Administrative system for managing Venezuelan animal lottery ("lotería de anima
 - **Success criteria**: Lotteries persist with all three times, display correctly, and can be filtered/searched efficiently
 
 ### User & Role Management System
-- **Functionality**: Create users and roles with granular module-level permissions
-- **Purpose**: Control who has access to specific system functions
+- **Functionality**: Create users and roles with granular module-level permissions, with mandatory passwords for administrative users
+- **Purpose**: Control who has access to specific system functions with secure authentication
 - **Trigger**: Admin navigates to Users or Roles tab
-- **Progression**: Create role → Define permissions (dashboard, lotteries, bets, winners, history, users, roles) → Save → Create user → Assign name, email, and one or more roles → User can only access permitted modules → Edit or deactivate users as needed
-- **Success criteria**: Users see only tabs they have permission for, multiple roles per user work correctly, system roles cannot be deleted
+- **Progression**: Create role → Define permissions (dashboard, lotteries, bets, winners, history, users, roles) → Save → Create user → Assign name, email, and one or more roles → Set default password (required for admin roles, optional for others) → User can only access permitted modules → Edit or deactivate users as needed
+- **Success criteria**: Users see only tabs they have permission for, multiple roles per user work correctly, system roles cannot be deleted, admin users require passwords, password validation on login works
 
 ### Login & Session Management
-- **Functionality**: User selection screen with session persistence
-- **Purpose**: Identify current user and apply their permissions
+- **Functionality**: User selection screen with password authentication and session persistence
+- **Purpose**: Identify current user, verify credentials, and apply their permissions
 - **Trigger**: App loads without active session or user logs out
-- **Progression**: Login screen → Select user from dropdown → Session starts → User sees personalized header with name/email → Access restricted to permitted modules → Logout clears session
-- **Success criteria**: Sessions persist across page refreshes, logout works correctly, permissions apply immediately
+- **Progression**: Login screen → Select user from dropdown → Enter password if required → Session starts → User sees personalized header with name/email → Access restricted to permitted modules → Logout clears session
+- **Success criteria**: Sessions persist across page refreshes, password validation works correctly, logout works, permissions apply immediately, default admin has password "admin123"
 
 ### Search & Filter Capabilities
 - **Functionality**: Real-time search and multi-criteria filters for lotteries, bets, users, and roles
@@ -75,6 +75,7 @@ Administrative system for managing Venezuelan animal lottery ("lotería de anima
 - **Negative transfer amounts**: Form validation prevents invalid transfers
 - **Past closing times**: Visual indicator for closed lotteries, prevent new bets
 - **Zero balances**: Disable withdrawal when profit pot is empty
+- **Password authentication**: Incorrect password shows alert, empty password field prevents login when required, admin roles require passwords before user creation
 
 ## Design Direction
 

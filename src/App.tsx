@@ -99,13 +99,13 @@ function App() {
         id: "admin-user",
         name: "Administrador Principal",
         email: "admin@loteria.com",
+        password: "admin123",
         roleIds: ["admin"],
         isActive: true,
         createdAt: new Date().toISOString(),
         createdBy: "system",
       }
       setUsers([adminUser])
-      setCurrentUserId("admin-user")
     }
   }, [])
 
