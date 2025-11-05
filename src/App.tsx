@@ -22,7 +22,7 @@ import { LoginScreen } from "@/components/LoginScreen"
 import { ApiKeyDialog } from "@/components/ApiKeyDialog"
 import { ReportsCard } from "@/components/ReportsCard"
 import { DrawStatsCard } from "@/components/DrawStatsCard"
-import { useAuth } from "@/hooks/use-auth"
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
 import { Plus, Ticket, Trophy, Vault, ListBullets, Calendar, Pencil, Trash, Users, ShieldCheck, SignOut, MagnifyingGlass, Funnel, ChartLine, Key, Copy, Eye, EyeSlash } from "@phosphor-icons/react"
 import { toast } from "sonner"
 import { Toaster } from "@/components/ui/sonner"
@@ -43,9 +43,8 @@ function App() {
   const [users, setUsers] = useKV<User[]>("users", [])
   const [roles, setRoles] = useKV<Role[]>("roles", [])
   const [apiKeys, setApiKeys] = useKV<ApiKey[]>("apiKeys", [])
-  const [currentUserId, setCurrentUserId] = useKV<string>("currentUserId", "")
 
-  const { currentUser, hasPermission } = useAuth()
+  const { currentUser, currentUserId, isLoading, login, logout, hasPermission } = useSupabaseAuth()
 
   const [lotteryDialogOpen, setLotteryDialogOpen] = useState(false)
   const [editingLottery, setEditingLottery] = useState<Lottery | undefined>()
@@ -255,7 +254,7 @@ function App() {
 
   const handleLogout = () => {
     if (confirm("¿Está seguro de cerrar sesión?")) {
-      setCurrentUserId("")
+      logout()
       toast.success("Sesión cerrada")
     }
   }
@@ -349,8 +348,17 @@ function App() {
     )
   })
 
-  if (!currentUserId || !currentUser) {
-    return <LoginScreen users={currentUsers} onLogin={setCurrentUserId} />
+  if (!currentUserId || !currentUser || isLoading) {
+    if (isLoading) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-lg">Cargando...</p>
+          </div>
+        </div>
+      )
+    }
+    return <LoginScreen onLogin={login} />
   }
 
   return (

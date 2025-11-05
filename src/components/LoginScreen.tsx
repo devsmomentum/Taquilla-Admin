@@ -3,47 +3,43 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { User } from "@/lib/types"
-import { UserCircle } from "@phosphor-icons/react"
+import { UserCircle, Eye, EyeSlash } from "@phosphor-icons/react"
+import { toast } from "sonner"
 
 interface LoginScreenProps {
-  users: User[]
-  onLogin: (userId: string) => void
+  onLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
 }
 
-export function LoginScreen({ users, onLogin }: LoginScreenProps) {
-  const [selectedUserId, setSelectedUserId] = useState("")
+export function LoginScreen({ onLogin }: LoginScreenProps) {
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const activeUsers = users.filter((u) => u.isActive)
-  const selectedUser = activeUsers.find((u) => u.id === selectedUserId)
-
-  const handleLogin = () => {
-    if (!selectedUserId) return
-
-    if (selectedUser?.password) {
-      if (password !== selectedUser.password) {
-        alert("Contraseña incorrecta")
-        return
-      }
+  const handleLogin = async () => {
+    if (!email || !password) {
+      toast.error("Por favor ingrese email y contraseña")
+      return
     }
 
-    onLogin(selectedUserId)
-  }
-
-  const handleUserChange = (userId: string) => {
-    setSelectedUserId(userId)
-    const user = activeUsers.find((u) => u.id === userId)
-    if (user?.password) {
-      setPassword(user.password)
-    } else {
-      setPassword("")
+    setIsLoading(true)
+    try {
+      const result = await onLogin(email, password)
+      
+      if (!result.success) {
+        toast.error(result.error || "Error al iniciar sesión")
+      } else {
+        toast.success("¡Bienvenido!")
+      }
+    } catch (error) {
+      toast.error("Error al iniciar sesión")
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && selectedUserId) {
+    if (e.key === "Enter" && email && password) {
       handleLogin()
     }
   }
@@ -61,54 +57,50 @@ export function LoginScreen({ users, onLogin }: LoginScreenProps) {
           <CardDescription className="text-xs md:text-sm">Lotería de Animalitos</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {activeUsers.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground mb-4 text-sm md:text-base">
-                No hay usuarios activos en el sistema.
-              </p>
-              <p className="text-xs md:text-sm text-muted-foreground">
-                Un administrador debe crear usuarios primero.
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="user-select" className="text-sm md:text-base">Seleccione su usuario</Label>
-                <Select value={selectedUserId} onValueChange={handleUserChange}>
-                  <SelectTrigger id="user-select">
-                    <SelectValue placeholder="Seleccione un usuario" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeUsers.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.name} ({user.email})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-sm md:text-base">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="correo@ejemplo.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyPress={handleKeyPress}
+              autoComplete="email"
+            />
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm md:text-base">Contraseña</Label>
-                <Input
-                  id="password"
-                  type="text"
-                  placeholder="Ingrese su contraseña"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                />
-              </div>
-
+          <div className="space-y-2">
+            <Label htmlFor="password" className="text-sm md:text-base">Contraseña</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Ingrese su contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={handleKeyPress}
+                autoComplete="current-password"
+              />
               <Button
-                className="w-full"
-                onClick={handleLogin}
-                disabled={!selectedUserId || (!!selectedUser?.password && !password)}
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3"
+                onClick={() => setShowPassword(!showPassword)}
               >
-                Iniciar Sesión
+                {showPassword ? <EyeSlash /> : <Eye />}
               </Button>
-            </>
-          )}
+            </div>
+          </div>
+
+          <Button
+            className="w-full"
+            onClick={handleLogin}
+            disabled={!email || !password || isLoading}
+          >
+            {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
+          </Button>
         </CardContent>
       </Card>
     </div>
