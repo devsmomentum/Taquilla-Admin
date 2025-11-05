@@ -707,7 +707,89 @@ CREATE POLICY "Users with dashboard permission can insert withdrawals"
 
 
 -- =====================================================
--- COMENTARIOS EN LAS TABLAS
+-- VISTAS
+-- =====================================================
+
+-- Vista: users_with_roles
+-- Combina usuarios con sus roles y permisos para consultas simplificadas
+CREATE OR REPLACE VIEW users_with_roles AS
+SELECT 
+  u.id,
+  u.name,
+  u.email,
+  u.is_active,
+  u.created_at,
+  u.created_by,
+  u.updated_at,
+  COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', r.id,
+        'name', r.name,
+        'description', r.description,
+        'permissions', r.permissions,
+        'is_system', r.is_system
+      )
+    ) FILTER (WHERE r.id IS NOT NULL),
+    '[]'::jsonb
+  ) AS roles,
+  COALESCE(
+    jsonb_agg(DISTINCT perm) FILTER (WHERE perm IS NOT NULL),
+    '[]'::jsonb
+  ) AS all_permissions
+FROM users u
+LEFT JOIN user_roles ur ON u.id = ur.user_id
+LEFT JOIN roles r ON ur.role_id = r.id
+LEFT JOIN LATERAL jsonb_array_elements(r.permissions) AS perm ON TRUE
+GROUP BY u.id, u.name, u.email, u.is_active, u.created_at, u.created_by, u.updated_at;
+
+-- Vista: lottery_statistics
+-- Estadísticas agregadas por lotería
+CREATE OR REPLACE VIEW lottery_statistics AS
+SELECT 
+  l.id AS lottery_id,
+  l.name AS lottery_name,
+  l.is_active,
+  l.opening_time,
+  l.closing_time,
+  l.draw_time,
+  COUNT(DISTINCT b.id) AS total_bets,
+  COALESCE(SUM(b.amount), 0) AS total_bet_amount,
+  COUNT(DISTINCT b.id) FILTER (WHERE b.is_winner = TRUE) AS total_winners,
+  COALESCE(SUM(b.potential_win) FILTER (WHERE b.is_winner = TRUE), 0) AS total_payouts,
+  COUNT(DISTINCT d.id) AS total_draws,
+  (
+    SELECT COUNT(*)
+    FROM prizes p
+    WHERE p.lottery_id = l.id
+  ) AS total_prizes
+FROM lotteries l
+LEFT JOIN bets b ON l.id = b.lottery_id
+LEFT JOIN draws d ON l.id = d.lottery_id
+GROUP BY l.id, l.name, l.is_active, l.opening_time, l.closing_time, l.draw_time;
+
+-- Vista: pots_summary
+-- Resumen de potes con totales y porcentajes
+CREATE OR REPLACE VIEW pots_summary AS
+SELECT 
+  id,
+  name,
+  percentage,
+  balance,
+  color,
+  description,
+  updated_at,
+  (SELECT SUM(balance) FROM pots) AS total_balance,
+  CASE 
+    WHEN (SELECT SUM(balance) FROM pots) > 0 
+    THEN ROUND((balance / (SELECT SUM(balance) FROM pots) * 100)::numeric, 2)
+    ELSE 0
+  END AS actual_percentage
+FROM pots
+ORDER BY id;
+
+-- =====================================================
+-- COMENTARIOS EN LAS TABLAS Y VISTAS
 -- =====================================================
 
 COMMENT ON TABLE roles IS 'Roles del sistema con permisos modulares';
@@ -721,6 +803,10 @@ COMMENT ON TABLE draws IS 'Resultados de los sorteos realizados';
 COMMENT ON TABLE pots IS 'Potes del sistema (premios, reserva, ganancias)';
 COMMENT ON TABLE transfers IS 'Transferencias de fondos entre potes';
 COMMENT ON TABLE withdrawals IS 'Retiros de ganancias del sistema';
+
+COMMENT ON VIEW users_with_roles IS 'Vista que combina usuarios con sus roles y permisos agregados';
+COMMENT ON VIEW lottery_statistics IS 'Vista con estadísticas agregadas por lotería';
+COMMENT ON VIEW pots_summary IS 'Vista con resumen de potes incluyendo totales y porcentajes';
 
 -- =====================================================
 -- FIN DEL SCRIPT
