@@ -1640,22 +1640,36 @@ function App() {
           </TabsContent>
 
           <TabsContent value="api-keys" className="space-y-4 md:space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xl md:text-2xl font-semibold">Gestión de API Keys</h2>
-                <p className="text-muted-foreground text-sm">Conectar sistemas de ventas externos</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-600 rounded-lg">
+                  <Key className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl md:text-2xl font-semibold text-gray-900">
+                    Gestión de API Keys
+                  </h2>
+                  <p className="text-muted-foreground text-sm">
+                    Conectar sistemas de ventas externos de forma segura
+                  </p>
+                </div>
               </div>
-              <Button onClick={() => setApiKeyDialogOpen(true)} className="w-full sm:w-auto">
-                <Plus className="mr-2" />
+              <Button 
+                onClick={() => setApiKeyDialogOpen(true)} 
+                className="w-full sm:w-auto"
+                size="lg"
+              >
+                <Plus className="mr-2 h-5 w-5" />
                 Nueva API Key
               </Button>
             </div>
 
-            <Alert>
-              <Key className="h-4 w-4" />
-              <AlertDescription>
-                Las API Keys permiten que sistemas de ventas externos se conecten de forma segura para enviar jugadas y
-                consultar información. Mantenga sus keys privadas y revoque acceso cuando sea necesario.
+            <Alert className="border-blue-200 bg-blue-50">
+              <Key className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                <strong>Información importante:</strong> Las API Keys permiten que sistemas de ventas externos se conecten 
+                de forma segura para enviar jugadas y consultar información. Mantenga sus keys privadas y revoque 
+                acceso cuando sea necesario.
               </AlertDescription>
             </Alert>
 
@@ -1674,20 +1688,25 @@ function App() {
             </Card>
 
             {filteredApiKeys.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <Key className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-lg font-medium">
+              <Card className="border-dashed border-2 border-blue-200">
+                <CardContent className="flex flex-col items-center justify-center py-16 px-8">
+                  <div className="p-4 bg-blue-600 rounded-full mb-6">
+                    <Key className="h-16 w-16 text-white" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2 text-gray-900">
                     {currentApiKeys.length === 0 ? "No hay API Keys creadas" : "No se encontraron API Keys"}
-                  </p>
-                  <p className="text-muted-foreground mb-4">
+                  </h3>
+                  <p className="text-muted-foreground mb-6 text-center max-w-md">
                     {currentApiKeys.length === 0
-                      ? "Cree una API Key para conectar sistemas externos"
-                      : "Intente con otros criterios de búsqueda"}
+                      ? "Crea tu primera API Key para conectar sistemas de ventas externos de forma segura"
+                      : "Intente con otros criterios de búsqueda o cree una nueva API Key"}
                   </p>
                   {currentApiKeys.length === 0 && (
-                    <Button onClick={() => setApiKeyDialogOpen(true)}>
-                      <Plus className="mr-2" />
+                    <Button 
+                      onClick={() => setApiKeyDialogOpen(true)}
+                      size="lg"
+                    >
+                      <Plus className="mr-2 h-5 w-5" />
                       Crear Primera API Key
                     </Button>
                   )}
