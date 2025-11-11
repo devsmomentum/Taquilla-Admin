@@ -362,7 +362,7 @@ export function ReportsCard({ bets, draws, lotteries }: ReportsCardProps) {
         <Card>
           <CardHeader className="pb-3">
             <CardDescription className="text-xs md:text-sm">Ventas de Hoy</CardDescription>
-            <CardTitle className="text-2xl md:text-3xl tabular-nums">{formatCurrency(todayStats.totalSales)}</CardTitle>
+            <CardTitle className="text-lg md:text-xl lg:text-2xl tabular-nums overflow-hidden text-ellipsis">{formatCurrency(todayStats.totalSales)}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2 text-xs md:text-sm">
@@ -377,7 +377,7 @@ export function ReportsCard({ bets, draws, lotteries }: ReportsCardProps) {
         <Card>
           <CardHeader className="pb-3">
             <CardDescription className="text-xs md:text-sm">Jugadas de Hoy</CardDescription>
-            <CardTitle className="text-2xl md:text-3xl tabular-nums">{todayStats.totalBets}</CardTitle>
+            <CardTitle className="text-lg md:text-xl lg:text-2xl tabular-nums">{todayStats.totalBets}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2 text-xs md:text-sm">
@@ -392,7 +392,7 @@ export function ReportsCard({ bets, draws, lotteries }: ReportsCardProps) {
         <Card>
           <CardHeader className="pb-3">
             <CardDescription className="text-xs md:text-sm">Premios Pagados</CardDescription>
-            <CardTitle className="text-2xl md:text-3xl tabular-nums">{formatCurrency(todayStats.totalPayout)}</CardTitle>
+            <CardTitle className="text-lg md:text-xl lg:text-2xl tabular-nums overflow-hidden text-ellipsis">{formatCurrency(todayStats.totalPayout)}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2 text-xs md:text-sm">
@@ -404,7 +404,7 @@ export function ReportsCard({ bets, draws, lotteries }: ReportsCardProps) {
         <Card>
           <CardHeader className="pb-3">
             <CardDescription className="text-xs md:text-sm">Ganancia Neta</CardDescription>
-            <CardTitle className="text-2xl md:text-3xl tabular-nums">{formatCurrency(todayStats.netProfit)}</CardTitle>
+            <CardTitle className="text-lg md:text-xl lg:text-2xl tabular-nums overflow-hidden text-ellipsis">{formatCurrency(todayStats.netProfit)}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2 text-xs md:text-sm">

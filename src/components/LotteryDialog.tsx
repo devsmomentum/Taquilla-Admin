@@ -7,13 +7,6 @@ import { Lottery, Prize, ANIMALS } from "@/lib/types"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
-import { Trash, Plus } from "@phosphor-icons/react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 
 interface LotteryDialogProps {
   open: boolean
@@ -29,13 +22,42 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave }: LotteryDi
   const [drawTime, setDrawTime] = useState(lottery?.drawTime || "13:00")
   const [isActive, setIsActive] = useState(lottery?.isActive ?? true)
   const [playsTomorrow, setPlaysTomorrow] = useState(lottery?.playsTomorrow ?? true)
-  const [prizes, setPrizes] = useState<Prize[]>(lottery?.prizes || [])
+  const [animalsX30, setAnimalsX30] = useState<string[]>(
+    lottery?.prizes.filter(p => p.multiplier === 30).map(p => p.animalNumber) || []
+  )
+  const [animalsX40, setAnimalsX40] = useState<string[]>(
+    lottery?.prizes.filter(p => p.multiplier === 40).map(p => p.animalNumber) || []
+  )
 
   const handleSave = () => {
     if (!name || !openingTime || !closingTime || !drawTime) {
       toast.error("Por favor complete todos los campos")
       return
     }
+
+    // Crear premios para animales x30
+    const prizesX30: Prize[] = animalsX30.map((animalNumber) => {
+      const animal = ANIMALS.find(a => a.number === animalNumber)
+      return {
+        id: `${Date.now()}-${animalNumber}-30`,
+        animalNumber,
+        multiplier: 30,
+        animalName: animal?.name || "",
+      }
+    })
+
+    // Crear premios para animales x40
+    const prizesX40: Prize[] = animalsX40.map((animalNumber) => {
+      const animal = ANIMALS.find(a => a.number === animalNumber)
+      return {
+        id: `${Date.now()}-${animalNumber}-40`,
+        animalNumber,
+        multiplier: 40,
+        animalName: animal?.name || "",
+      }
+    })
+
+    const allPrizes = [...prizesX30, ...prizesX40]
 
     const lotteryData: Lottery = {
       id: lottery?.id || Date.now().toString(),
@@ -45,7 +67,7 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave }: LotteryDi
       drawTime,
       isActive,
       playsTomorrow,
-      prizes,
+      prizes: allPrizes,
       createdAt: lottery?.createdAt || new Date().toISOString(),
     }
 
@@ -54,32 +76,38 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave }: LotteryDi
     toast.success(lottery ? "Lotería actualizada" : "Lotería creada")
   }
 
-  const addAllPrizesWithMultiplier = (multiplier: number) => {
-    const newPrizes: Prize[] = ANIMALS.map((animal) => ({
-      id: `${Date.now()}-${animal.number}`,
-      animalNumber: animal.number,
-      multiplier: multiplier,
-      animalName: animal.name,
-    }))
-    setPrizes([...prizes, ...newPrizes])
-    toast.success(`✅ ${ANIMALS.length} premios agregados con multiplicador x${multiplier}`)
+  const toggleAnimalX30 = (animalNumber: string) => {
+    setAnimalsX30(prev => 
+      prev.includes(animalNumber) 
+        ? prev.filter(n => n !== animalNumber)
+        : [...prev, animalNumber]
+    )
   }
 
-  const updatePrize = (id: string, field: keyof Prize, value: string | number) => {
-    setPrizes(prizes.map((p) => {
-      if (p.id === id) {
-        if (field === "animalNumber") {
-          const animal = ANIMALS.find((a) => a.number === value)
-          return { ...p, animalNumber: value as string, animalName: animal?.name || "" }
-        }
-        return { ...p, [field]: value }
-      }
-      return p
-    }))
+  const toggleAnimalX40 = (animalNumber: string) => {
+    setAnimalsX40(prev => 
+      prev.includes(animalNumber) 
+        ? prev.filter(n => n !== animalNumber)
+        : [...prev, animalNumber]
+    )
   }
 
-  const removePrize = (id: string) => {
-    setPrizes(prizes.filter((p) => p.id !== id))
+  const selectAllX30 = () => {
+    setAnimalsX30(ANIMALS.map(a => a.number))
+    toast.success("Todos los animalitos seleccionados para x30")
+  }
+
+  const selectAllX40 = () => {
+    setAnimalsX40(ANIMALS.map(a => a.number))
+    toast.success("Todos los animalitos seleccionados para x40")
+  }
+
+  const clearAllX30 = () => {
+    setAnimalsX30([])
+  }
+
+  const clearAllX40 = () => {
+    setAnimalsX40([])
   }
 
   return (
@@ -151,80 +179,71 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave }: LotteryDi
             <Switch checked={playsTomorrow} onCheckedChange={setPlaysTomorrow} />
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Premios</Label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button type="button" variant="outline" size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Agregar Premio
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Animalitos con Multiplicador x30</Label>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={selectAllX30}>
+                    Todos
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => addAllPrizesWithMultiplier(30)}>
-                    <div className="flex flex-col">
-                      <span className="font-medium">Todos los animalitos x30</span>
-                      <span className="text-xs text-muted-foreground">Agrega los 37 animales con multiplicador x30</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => addAllPrizesWithMultiplier(40)}>
-                    <div className="flex flex-col">
-                      <span className="font-medium">Todos los animalitos x40</span>
-                      <span className="text-xs text-muted-foreground">Agrega los 37 animales con multiplicador x40</span>
-                    </div>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  <Button type="button" variant="outline" size="sm" onClick={clearAllX30}>
+                    Ninguno
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-3 border rounded-lg">
+                {ANIMALS.map((animal) => (
+                  <label
+                    key={animal.number}
+                    className="flex items-center gap-2 cursor-pointer hover:bg-muted p-2 rounded"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={animalsX30.includes(animal.number)}
+                      onChange={() => toggleAnimalX30(animal.number)}
+                      className="rounded"
+                    />
+                    <span className="text-sm">{animal.number} - {animal.name}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {animalsX30.length} animalito{animalsX30.length !== 1 ? 's' : ''} seleccionado{animalsX30.length !== 1 ? 's' : ''}
+              </p>
             </div>
 
             <div className="space-y-2">
-              {prizes.map((prize) => (
-                <div key={prize.id} className="flex gap-2 items-end">
-                  <div className="flex-1 space-y-2">
-                    <Label>Animal</Label>
-                    <Select
-                      value={prize.animalNumber}
-                      onValueChange={(value) => updatePrize(prize.id, "animalNumber", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ANIMALS.map((animal) => (
-                          <SelectItem key={animal.number} value={animal.number}>
-                            {animal.number} - {animal.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="w-32 space-y-2">
-                    <Label>Multiplicador</Label>
-                    <Input
-                      type="number"
-                      value={prize.multiplier}
-                      onChange={(e) => updatePrize(prize.id, "multiplier", Number(e.target.value))}
-                    />
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => removePrize(prize.id)}
-                  >
-                    <Trash />
+              <div className="flex items-center justify-between">
+                <Label>Animalitos con Multiplicador x40</Label>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={selectAllX40}>
+                    Todos
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={clearAllX40}>
+                    Ninguno
                   </Button>
                 </div>
-              ))}
-
-              {prizes.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No hay premios configurados
-                </p>
-              )}
+              </div>
+              <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-3 border rounded-lg">
+                {ANIMALS.map((animal) => (
+                  <label
+                    key={animal.number}
+                    className="flex items-center gap-2 cursor-pointer hover:bg-muted p-2 rounded"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={animalsX40.includes(animal.number)}
+                      onChange={() => toggleAnimalX40(animal.number)}
+                      className="rounded"
+                    />
+                    <span className="text-sm">{animal.number} - {animal.name}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {animalsX40.length} animalito{animalsX40.length !== 1 ? 's' : ''} seleccionado{animalsX40.length !== 1 ? 's' : ''}
+              </p>
             </div>
           </div>
         </div>
