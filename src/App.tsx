@@ -964,8 +964,8 @@ function App() {
           <TabsContent value="draws" className="space-y-4 md:space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl md:text-2xl font-semibold">Gestión de Resultados</h2>
-                <p className="text-muted-foreground text-sm">Administrar resultados y ganadores de sorteos</p>
+                <h2 className="text-xl md:text-2xl font-semibold">Administración de Sorteos</h2>
+                <p className="text-muted-foreground text-sm">Crear, editar y eliminar resultados de sorteos realizados</p>
               </div>
               <Button 
                 onClick={() => {
@@ -975,35 +975,35 @@ function App() {
                 className="w-full sm:w-auto"
               >
                 <Plus className="mr-2" />
-                Nuevo Sorteo
+                Crear Sorteo
               </Button>
             </div>
 
-            {/* Estadísticas de Sorteos */}
+            {/* Estadísticas Administrativas */}
             <Card>
               <CardHeader>
-                <CardTitle>Estadísticas de Resultados</CardTitle>
-                <CardDescription>Resumen de resultados realizados</CardDescription>
+                <CardTitle>Panel de Control de Sorteos</CardTitle>
+                <CardDescription>Vista administrativa de todos los sorteos del sistema</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="text-center">
                     <div className="text-2xl font-bold">{supabaseDraws.length}</div>
-                    <div className="text-sm text-muted-foreground">Total Resultados</div>
+                    <div className="text-sm text-muted-foreground">Sorteos Registrados</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">{supabaseDraws.filter(d => (d.winnersCount || 0) > 0).length}</div>
-                    <div className="text-sm text-muted-foreground">Resultados con Ganadores</div>
+                    <div className="text-sm text-muted-foreground">Con Ganadores</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
                       {formatCurrency(supabaseDraws.reduce((sum, d) => sum + (d.totalPayout || 0), 0))}
                     </div>
-                    <div className="text-sm text-muted-foreground">Total Pagado</div>
+                    <div className="text-sm text-muted-foreground">Total Premios Pagados</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold">{supabaseLotteries.length}</div>
-                    <div className="text-sm text-muted-foreground">Sorteos Activos</div>
+                    <div className="text-2xl font-bold">{supabaseDraws.filter(d => (d.winnersCount || 0) === 0).length}</div>
+                    <div className="text-sm text-muted-foreground">Sin Ganadores</div>
                   </div>
                 </div>
               </CardContent>
@@ -1018,8 +1018,8 @@ function App() {
             ) : (
               <Card>
                 <CardHeader>
-                  <CardTitle>Lista de Resultados</CardTitle>
-                  <CardDescription>Todos los resultados registrados en el sistema</CardDescription>
+                  <CardTitle>Administrar Sorteos</CardTitle>
+                  <CardDescription>Gestionar resultados - crear, editar o eliminar sorteos del sistema</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
@@ -1151,95 +1151,48 @@ function App() {
           <TabsContent value="winners" className="space-y-4 md:space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl md:text-2xl font-semibold">Ganadores y Resultados</h2>
-                <p className="text-muted-foreground text-sm">Realizar sorteos y ver ganadores</p>
+                <h2 className="text-xl md:text-2xl font-semibold">Consulta de Ganadores</h2>
+                <p className="text-muted-foreground text-sm">Ver y consultar todas las jugadas ganadoras del sistema</p>
               </div>
-              <Button onClick={() => setDrawDialogOpen(true)} className="w-full sm:w-auto">
-                <Trophy className="mr-2" />
-                Realizar Sorteo
-              </Button>
             </div>
 
             <div className="space-y-4 md:space-y-6">
+              {/* Estadísticas de Ganadores */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Resultados Realizados</CardTitle>
-                  <CardDescription>Historial de resultados y ganadores</CardDescription>
+                  <CardTitle>Estadísticas de Ganadores</CardTitle>
+                  <CardDescription>Resumen general de jugadas ganadoras</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                    <div className="flex-1 relative">
-                      <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="Buscar por lotería o animal..."
-                        value={drawSearch}
-                        onChange={(e) => setDrawSearch(e.target.value)}
-                        className="pl-10"
-                      />
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold">{winners.length}</div>
+                      <div className="text-sm text-muted-foreground">Jugadas Ganadoras</div>
                     </div>
-                    <Select
-                      value={drawFilters.lotteryId || "all"}
-                      onValueChange={(value) =>
-                        setDrawFilters((f) => ({ ...f, lotteryId: value === "all" ? undefined : value }))
-                      }
-                    >
-                      <SelectTrigger className="w-full sm:w-[200px]">
-                        <SelectValue placeholder="Filtrar por sorteo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos los sorteos</SelectItem>
-                        {currentLotteries.map((lottery) => (
-                          <SelectItem key={lottery.id} value={lottery.id}>
-                            {lottery.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {filteredDraws.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      {currentDraws.length === 0 ? "No hay resultados realizados" : "No se encontraron resultados"}
-                    </p>
-                  ) : (
-                    <ScrollArea className="h-[250px] md:h-[300px]">
-                      <div className="space-y-3">
-                        {filteredDraws
-                          .sort((a, b) => new Date(b.drawTime).getTime() - new Date(a.drawTime).getTime())
-                          .map((draw) => (
-                            <div
-                              key={draw.id}
-                              className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-3"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium truncate">{draw.lotteryName}</p>
-                                <p className="text-sm text-muted-foreground truncate">
-                                  Ganador: {draw.winningAnimalNumber} - {draw.winningAnimalName}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {format(new Date(draw.drawTime), "dd/MM/yyyy HH:mm", { locale: es })}
-                                </p>
-                              </div>
-                              <div className="text-left sm:text-right shrink-0">
-                                <p className="text-sm text-muted-foreground">
-                                  {draw.winnersCount} ganador{draw.winnersCount !== 1 ? "es" : ""}
-                                </p>
-                                <p className="font-semibold tabular-nums">
-                                  {formatCurrency(draw.totalPayout)}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
+                    <div className="text-center">
+                      <div className="text-2xl font-bold">
+                        {formatCurrency(winners.reduce((sum, b) => sum + b.potentialWin, 0))}
                       </div>
-                    </ScrollArea>
-                  )}
+                      <div className="text-sm text-muted-foreground">Total Premios</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold">
+                        {formatCurrency(winners.reduce((sum, b) => sum + b.amount, 0))}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Total Apostado</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold">{currentDraws.length}</div>
+                      <div className="text-sm text-muted-foreground">Sorteos Realizados</div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Jugadas Ganadoras</CardTitle>
-                  <CardDescription>Todas las jugadas que han ganado premios</CardDescription>
+                  <CardTitle>Listado de Jugadas Ganadoras</CardTitle>
+                  <CardDescription>Consulta detallada de todas las jugadas que ganaron premios</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
@@ -1277,7 +1230,7 @@ function App() {
                       {winners.length === 0 ? "No hay ganadores aún" : "No se encontraron ganadores"}
                     </p>
                   ) : (
-                    <ScrollArea className="h-[250px] md:h-[300px]">
+                    <ScrollArea className="h-[400px] md:h-[500px]">
                       <div className="overflow-x-auto">
                         <Table>
                           <TableHeader>
