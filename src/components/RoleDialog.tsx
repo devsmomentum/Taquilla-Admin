@@ -17,7 +17,7 @@ interface RoleDialogProps {
 
 const AVAILABLE_MODULES: { value: ModulePermission; label: string; description: string }[] = [
   { value: "dashboard", label: "Dashboard", description: "Ver balance de potes y estadísticas" },
-  { value: "lotteries", label: "Loterías", description: "Crear y gestionar loterías" },
+  { value: "lotteries", label: "Sorteos", description: "Crear y gestionar sorteos" },
   { value: "winners", label: "Ganadores", description: "Realizar sorteos y ver ganadores" },
   { value: "history", label: "Historial", description: "Ver transferencias y retiros" },
   { value: "users", label: "Usuarios", description: "Gestionar usuarios del sistema" },
