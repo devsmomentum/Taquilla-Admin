@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Debug Jugadas (Bets)</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background: #1a1a1a;
+      color: #00ff00;
+    }
+    .section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #00ff00;
+      background: #0a0a0a;
+    }
+    button {
+      background: #00ff00;
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      cursor: pointer;
+      margin: 5px;
+      font-family: monospace;
+      font-weight: bold;
+    }
+    button:hover { background: #00cc00; }
+    .error { color: #ff0000; }
+    .success { color: #00ff00; }
+    .warning { color: #ffaa00; }
+    pre {
+      background: #000;
+      padding: 10px;
+      overflow-x: auto;
+      border: 1px solid #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 Debug Jugadas (Bets)</h1>
+  
+  <div class="section">
+    <h2>1. LocalStorage</h2>
+    <button onclick="checkLocalStorage()">Revisar localStorage</button>
+    <button onclick="clearBetsLocalStorage()">Limpiar localStorage de bets</button>
+    <pre id="localStorage-result"></pre>
+  </div>
+
+  <div class="section">
+    <h2>2. Verificar Supabase</h2>
+    <button onclick="checkSupabase()">Conectar a Supabase</button>
+    <pre id="supabase-result"></pre>
+  </div>
+
+  <div class="section">
+    <h2>3. Verificar Loterías</h2>
+    <button onclick="checkLotteries()">Listar Loterías</button>
+    <pre id="lotteries-result"></pre>
+  </div>
+
+  <div class="section">
+    <h2>4. Verificar Jugadas Existentes</h2>
+    <button onclick="checkBets()">Listar Jugadas</button>
+    <pre id="bets-result"></pre>
+  </div>
+
+  <div class="section">
+    <h2>5. Crear Jugada de Prueba</h2>
+    <label>Lotería ID: <input type="text" id="lottery-id" placeholder="UUID de lotería" style="width: 300px;"></label><br>
+    <label>Lotería Nombre: <input type="text" id="lottery-name" value="Lotto Activo" style="width: 300px;"></label><br>
+    <label>Animal #: <input type="text" id="animal-number" value="13" style="width: 100px;"></label><br>
+    <label>Animal Nombre: <input type="text" id="animal-name" value="Caballo" style="width: 200px;"></label><br>
+    <label>Monto: <input type="number" id="amount" value="100" style="width: 100px;"></label><br>
+    <button onclick="createTestBet()">Crear Jugada</button>
+    <pre id="create-bet-result"></pre>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+
+    const supabaseUrl = 'https://evtznnbjgtdvcvkxpyuw.supabase.co'
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2dHpubmJqZ3RkdmN2a3hweXV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM0Mzg3NjYsImV4cCI6MjA0OTAxNDc2Nn0.mnndF41WJe8hBX_d9xpBP5wKBFJPKJOGmYHVB3hXP2k'
+    
+    window.supabase = createClient(supabaseUrl, supabaseKey)
+
+    window.checkLocalStorage = () => {
+      const result = document.getElementById('localStorage-result')
+      
+      const betsBackup = localStorage.getItem('supabase_bets_backup_v2')
+      
+      if (!betsBackup) {
+        result.innerHTML = '<span class="warning">⚠️ No hay backup de jugadas en localStorage</span>'
+        return
+      }
+
+      try {
+        const bets = JSON.parse(betsBackup)
+        result.innerHTML = `<span class="success">✅ Encontrados ${bets.length} jugadas en localStorage:</span>\n` +
+          JSON.stringify(bets, null, 2)
+      } catch (e) {
+        result.innerHTML = `<span class="error">❌ Error parseando localStorage: ${e.message}</span>`
+      }
+    }
+
+    window.clearBetsLocalStorage = () => {
+      localStorage.removeItem('supabase_bets_backup_v2')
+      document.getElementById('localStorage-result').innerHTML = 
+        '<span class="success">✅ localStorage limpiado</span>'
+    }
+
+    window.checkSupabase = async () => {
+      const result = document.getElementById('supabase-result')
+      result.innerHTML = '🔄 Conectando...'
+
+      try {
+        const { data, error } = await window.supabase
+          .from('bets')
+          .select('id')
+          .limit(1)
+
+        if (error) {
+          result.innerHTML = `<span class="error">❌ Error: ${error.message}\nCode: ${error.code}</span>`
+        } else {
+          result.innerHTML = '<span class="success">✅ Conexión exitosa a Supabase</span>'
+        }
+      } catch (e) {
+        result.innerHTML = `<span class="error">❌ Error de red: ${e.message}</span>`
+      }
+    }
+
+    window.checkLotteries = async () => {
+      const result = document.getElementById('lotteries-result')
+      result.innerHTML = '🔄 Cargando loterías...'
+
+      try {
+        const { data: lotteries, error } = await window.supabase
+          .from('lotteries')
+          .select('id, name, status')
+          .order('name')
+
+        if (error) {
+          result.innerHTML = `<span class="error">❌ Error: ${error.message}\nCode: ${error.code}</span>`
+        } else {
+          result.innerHTML = `<span class="success">✅ Encontradas ${lotteries.length} loterías:</span>\n` +
+            JSON.stringify(lotteries, null, 2)
+          
+          // Auto-rellenar el primer ID de lotería
+          if (lotteries.length > 0) {
+            document.getElementById('lottery-id').value = lotteries[0].id
+            document.getElementById('lottery-name').value = lotteries[0].name
+          }
+        }
+      } catch (e) {
+        result.innerHTML = `<span class="error">❌ Error: ${e.message}</span>`
+      }
+    }
+
+    window.checkBets = async () => {
+      const result = document.getElementById('bets-result')
+      result.innerHTML = '🔄 Cargando jugadas...'
+
+      try {
+        const { data: bets, error } = await window.supabase
+          .from('bets')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(10)
+
+        if (error) {
+          result.innerHTML = `<span class="error">❌ Error: ${error.message}\nCode: ${error.code}</span>`
+        } else {
+          result.innerHTML = `<span class="success">✅ Encontradas ${bets.length} jugadas:</span>\n` +
+            JSON.stringify(bets, null, 2)
+        }
+      } catch (e) {
+        result.innerHTML = `<span class="error">❌ Error: ${e.message}</span>`
+      }
+    }
+
+    window.createTestBet = async () => {
+      const result = document.getElementById('create-bet-result')
+      result.innerHTML = '🔄 Creando jugada...'
+
+      const lotteryId = document.getElementById('lottery-id').value
+      const lotteryName = document.getElementById('lottery-name').value
+      const animalNumber = document.getElementById('animal-number').value
+      const animalName = document.getElementById('animal-name').value
+      const amount = parseFloat(document.getElementById('amount').value)
+
+      if (!lotteryId || !lotteryName || !animalNumber || !animalName || !amount) {
+        result.innerHTML = '<span class="error">❌ Por favor completa todos los campos</span>'
+        return
+      }
+
+      const betData = {
+        lottery_id: lotteryId,
+        lottery_name: lotteryName,
+        animal_number: animalNumber,
+        animal_name: animalName,
+        amount: amount,
+        potential_win: amount * 64,
+        is_winner: false
+      }
+
+      console.log('📝 Creando jugada:', betData)
+
+      try {
+        const { data, error } = await window.supabase
+          .from('bets')
+          .insert([betData])
+          .select()
+          .single()
+
+        if (error) {
+          result.innerHTML = `<span class="error">❌ Error creando jugada:\n${error.message}\nCode: ${error.code}\nDetails: ${JSON.stringify(error.details, null, 2)}</span>`
+          console.error('Error completo:', error)
+        } else {
+          result.innerHTML = `<span class="success">✅ Jugada creada exitosamente!</span>\n` +
+            JSON.stringify(data, null, 2)
+          console.log('✅ Jugada creada:', data)
+        }
+      } catch (e) {
+        result.innerHTML = `<span class="error">❌ Error: ${e.message}</span>`
+        console.error('Error:', e)
+      }
+    }
+
+    // Auto-check al cargar
+    window.addEventListener('load', () => {
+      checkLocalStorage()
+      checkSupabase()
+    })
+  </script>
+</body>
+</html>

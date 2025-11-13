@@ -180,7 +180,7 @@ export function useSupabasePots() {
         const { data: supabasePots, error } = await supabase
           .from('pots')
           .select('*')
-          .order('name', { ascending: true })
+          .order('percentage', { ascending: false })
 
         if (error) {
           console.log('⚠️ Error accediendo potes (probablemente RLS):', error.message)

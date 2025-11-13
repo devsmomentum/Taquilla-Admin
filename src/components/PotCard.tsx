@@ -14,28 +14,42 @@ interface PotCardProps {
 
 export function PotCard({ pot, index, onTransfer, onWithdraw }: PotCardProps) {
   const isProfit = index === 2
+  
+  // Colores de fondo más vibrantes para cada pote
+  const bgColors = [
+    'bg-blue-100/50',     // Pote de Premios - azul claro
+    'bg-orange-100/50',   // Costos - naranja claro
+    'bg-green-100/50'     // Pote de Ganancias - verde claro
+  ]
+  
+  const titleColors = [
+    'text-blue-600',      // Pote de Premios
+    'text-orange-600',    // Costos
+    'text-green-600'      // Pote de Ganancias
+  ]
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
+      className="h-full"
     >
-      <Card className="hover:shadow-lg transition-shadow">
+      <Card className={`hover:shadow-lg transition-shadow h-full flex flex-col ${bgColors[index]}`}>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span className={pot.color}>{pot.name}</span>
+            <span className={`font-bold ${titleColors[index]}`}>{pot.name}</span>
             <span className="text-sm font-normal text-muted-foreground">{pot.percentage}%</span>
           </CardTitle>
           <CardDescription>{pot.description}</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="text-2xl md:text-3xl font-semibold tabular-nums">{formatCurrency(pot.balance)}</div>
-          <div className="flex flex-col sm:flex-row gap-2">
+        <CardContent className="space-y-4 flex-grow flex flex-col justify-end">
+          <div className="text-3xl font-bold tabular-nums">{formatCurrency(pot.balance)}</div>
+          <div className="flex gap-2 w-full">
             <Button
               variant="outline"
               size="sm"
-              className="flex-1"
+              className={isProfit ? "flex-1" : "w-full"}
               onClick={() => onTransfer(index)}
             >
               <ArrowsLeftRight className="mr-2" />
