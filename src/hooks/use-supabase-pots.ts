@@ -168,22 +168,11 @@ export function useSupabasePots() {
     }
   }, [])
 
-  // Cargar potes desde Supabase + fallback local
+  // Cargar potes desde Supabase (sin usar localStorage como fuente principal)
   const loadPots = useCallback(async () => {
     setIsLoading(true)
     try {
       console.log('Cargando potes desde Supabase...')
-      
-      // Primero intentar cargar desde localStorage (datos sincronizados)
-      const localPots = JSON.parse(localStorage.getItem('supabase_pots_backup_v2') || 'null')
-      
-      if (localPots && localPots.length > 0) {
-        console.log('✅ Potes cargados desde localStorage (datos sincronizados)')
-        setPots(localPots)
-        setIsConnected(true)
-        setIsLoading(false)
-        return
-      }
       
       const connectionOK = await testConnection()
       
@@ -195,37 +184,53 @@ export function useSupabasePots() {
 
         if (error) {
           console.log('⚠️ Error accediendo potes (probablemente RLS):', error.message)
-          // Usar potes por defecto pero no mostrar error al usuario
-          setPots(INITIAL_POTS)
-          localStorage.setItem('supabase_pots_backup_v2', JSON.stringify(INITIAL_POTS))
+          // Solo en caso de error, intentar usar localStorage como último recurso
+          const localPots = JSON.parse(localStorage.getItem('supabase_pots_backup_v2') || 'null')
+          if (localPots && localPots.length > 0) {
+            console.log('⚠️ Usando backup local por error de conexión')
+            setPots(localPots)
+          } else {
+            setPots(INITIAL_POTS)
+          }
           setIsConnected(false)
           console.log('📝 Usando potes por defecto')
         } else {
           if (supabasePots.length === 0) {
-            console.log('📋 No hay potes en Supabase, inicializando...')
-            const success = await initializePots()
-            if (!success) {
-              // Si falla la inicialización, usar datos por defecto silenciosamente
-              setPots(INITIAL_POTS)
-              localStorage.setItem('supabase_pots_backup_v2', JSON.stringify(INITIAL_POTS))
-            }
+            console.log('📋 No hay potes en Supabase, usando valores iniciales en ceros')
+            // No inicializar automáticamente, solo usar INITIAL_POTS (balance en 0)
+            setPots(INITIAL_POTS)
+            setIsConnected(true)
           } else {
             const mappedPots = supabasePots.map(mapSupabasePot)
             setPots(mappedPots)
+            // Guardar en localStorage solo como backup de emergencia
             localStorage.setItem('supabase_pots_backup_v2', JSON.stringify(mappedPots))
             console.log(`✅ ${mappedPots.length} potes cargados desde Supabase`)
             setIsConnected(true)
           }
         }
       } else {
-        console.log('⚠️ Sin conexión a Supabase, usando datos por defecto')
-        setPots(INITIAL_POTS)
-        localStorage.setItem('supabase_pots_backup_v2', JSON.stringify(INITIAL_POTS))
+        console.log('⚠️ Sin conexión a Supabase')
+        // Solo en caso de no conexión, intentar usar localStorage como último recurso
+        const localPots = JSON.parse(localStorage.getItem('supabase_pots_backup_v2') || 'null')
+        if (localPots && localPots.length > 0) {
+          console.log('⚠️ Usando backup local por falta de conexión')
+          setPots(localPots)
+        } else {
+          setPots(INITIAL_POTS)
+        }
+        setIsConnected(false)
       }
     } catch (err) {
       console.log('⚠️ Error general cargando potes:', err)
-      setPots(INITIAL_POTS)
-      localStorage.setItem('supabase_pots_backup_v2', JSON.stringify(INITIAL_POTS))
+      // Solo en caso de error crítico, intentar usar localStorage
+      const localPots = JSON.parse(localStorage.getItem('supabase_pots_backup_v2') || 'null')
+      if (localPots && localPots.length > 0) {
+        console.log('⚠️ Usando backup local por error crítico')
+        setPots(localPots)
+      } else {
+        setPots(INITIAL_POTS)
+      }
       setIsConnected(false)
     } finally {
       setIsLoading(false)
