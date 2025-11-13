@@ -784,7 +784,7 @@ function App() {
               <p className="text-muted-foreground text-sm">Análisis en tiempo real de ventas y premios</p>
             </div>
 
-            <ReportsCard bets={currentBets} draws={currentDraws} lotteries={currentLotteries} />
+            <ReportsCard draws={currentDraws} lotteries={currentLotteries} />
             
             <DrawStatsCard bets={currentBets} draws={currentDraws} lotteries={currentLotteries} />
           </TabsContent>
