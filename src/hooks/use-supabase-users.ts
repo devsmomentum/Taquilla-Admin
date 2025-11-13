@@ -85,7 +85,7 @@ export function useSupabaseUsers() {
     }
 
     try {
-      // Cargar usuarios desde Supabase con una consulta más simple
+      // Cargar usuarios desde Supabase
       const { data, error } = await supabase
         .from('users')
         .select(`
@@ -100,21 +100,33 @@ export function useSupabaseUsers() {
 
       if (error) throw error
 
-      // Transformar datos de Supabase al formato local
-      const supabaseUsers: User[] = data.map((user: any) => ({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        roleIds: [], // Los cargaremos por separado si es necesario
-        isActive: user.is_active,
-        createdAt: user.created_at,
-        createdBy: user.created_by || 'system',
-      }))
+      // Cargar roles para cada usuario
+      const usersWithRoles = await Promise.all(
+        data.map(async (user: any) => {
+          // Obtener roles del usuario
+          const { data: userRolesData } = await supabase
+            .from('user_roles')
+            .select('role_id')
+            .eq('user_id', user.id)
+          
+          const roleIds = userRolesData?.map(ur => ur.role_id) || []
+          
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            roleIds: roleIds,
+            isActive: user.is_active,
+            createdAt: user.created_at,
+            createdBy: user.created_by || 'system',
+          }
+        })
+      )
 
-      console.log(`☁️ Cargados ${supabaseUsers.length} usuarios desde Supabase`)
+      console.log(`☁️ Cargados ${usersWithRoles.length} usuarios desde Supabase con sus roles`)
 
       // Combinar usuarios de Supabase con locales (prioridad a Supabase)
-      const combinedUsers = [...supabaseUsers]
+      const combinedUsers = [...usersWithRoles]
       localUsers.forEach(localUser => {
         if (!combinedUsers.find(u => u.id === localUser.id || u.email === localUser.email)) {
           combinedUsers.push(localUser)
