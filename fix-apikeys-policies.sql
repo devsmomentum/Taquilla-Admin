@@ -12,6 +12,12 @@ DROP POLICY IF EXISTS "Users can create api_keys with permissions" ON api_keys;
 DROP POLICY IF EXISTS "Users can update their api_keys" ON api_keys;
 DROP POLICY IF EXISTS "Users can delete their api_keys" ON api_keys;
 
+-- Eliminar nuevas policies si existen (para poder recrearlas)
+DROP POLICY IF EXISTS "Allow read api_keys" ON api_keys;
+DROP POLICY IF EXISTS "Allow insert api_keys" ON api_keys;
+DROP POLICY IF EXISTS "Allow update api_keys" ON api_keys;
+DROP POLICY IF EXISTS "Allow delete api_keys" ON api_keys;
+
 -- Reactivar RLS
 ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
 
