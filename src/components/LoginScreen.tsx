@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { UserCircle, Eye, EyeSlash } from "@phosphor-icons/react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { UserCircle, Eye, EyeSlash, Warning } from "@phosphor-icons/react"
 import { toast } from "sonner"
 
 interface LoginScreenProps {
@@ -15,24 +16,33 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
 
   const handleLogin = async () => {
     if (!email || !password) {
-      toast.error("Por favor ingrese email y contraseña")
+      const message = "Por favor ingrese email y contraseña"
+      setErrorMessage(message)
+      toast.error(message)
       return
     }
 
     setIsLoading(true)
+    setErrorMessage("") // Limpiar error anterior
     try {
       const result = await onLogin(email, password)
       
       if (!result.success) {
-        toast.error(result.error || "Error al iniciar sesión")
+        const errorMsg = result.error || "Error al iniciar sesión"
+        setErrorMessage(errorMsg)
+        toast.error(errorMsg)
       } else {
         toast.success("¡Bienvenido!")
+        setErrorMessage("")
       }
     } catch (error) {
-      toast.error("Error al iniciar sesión")
+      const errorMsg = "Error al iniciar sesión. Por favor intente nuevamente"
+      setErrorMessage(errorMsg)
+      toast.error(errorMsg)
     } finally {
       setIsLoading(false)
     }
@@ -57,6 +67,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           <CardDescription className="text-xs md:text-sm">Lotería de Animalitos</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {errorMessage && (
+            <Alert variant="destructive" className="animate-in fade-in-0 slide-in-from-top-1">
+              <Warning className="h-4 w-4" />
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
+          )}
+          
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm md:text-base">Email</Label>
             <Input
@@ -64,9 +81,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               type="email"
               placeholder="correo@ejemplo.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                setErrorMessage("") // Limpiar error al escribir
+              }}
               onKeyPress={handleKeyPress}
               autoComplete="email"
+              className={errorMessage ? "border-destructive" : ""}
             />
           </div>
 
@@ -78,10 +99,13 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 type={showPassword ? "text" : "password"}
                 placeholder="Ingrese su contraseña"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setErrorMessage("") // Limpiar error al escribir
+                }}
                 onKeyPress={handleKeyPress}
                 autoComplete="new-password"
-                className="pr-10 [&::-ms-reveal]:hidden [&::-webkit-credentials-auto-fill-button]:hidden"
+                className={`pr-10 [&::-ms-reveal]:hidden [&::-webkit-credentials-auto-fill-button]:hidden ${errorMessage ? "border-destructive" : ""}`}
                 style={{ 
                   backgroundImage: 'none',
                   WebkitAppearance: 'none',
