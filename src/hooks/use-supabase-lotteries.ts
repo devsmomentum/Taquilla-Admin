@@ -114,12 +114,12 @@ export function useSupabaseLotteries() {
 
       setLotteries(transformedLotteries)
       console.log(`✅ Cargadas ${transformedLotteries.length} loterías desde Supabase`)
-      
+
     } catch (error: any) {
       console.error('Error loading lotteries:', error)
       setError(error.message || 'Error al cargar loterías')
       toast.error('Error al cargar loterías desde Supabase')
-      
+
       // Fallback a loterías por defecto en caso de error
       const defaultLotteries: Lottery[] = [
         {
@@ -150,7 +150,7 @@ export function useSupabaseLotteries() {
     try {
       // Verificar si ya existe una lotería con el mismo nombre
       console.log(`🔍 Verificando nombre de lotería: ${lotteryData.name}`)
-      
+
       const { data: existingLotteries, error: checkError } = await supabase
         .from('lotteries')
         .select('id, name')
@@ -229,19 +229,19 @@ export function useSupabaseLotteries() {
       console.log(`✅ Lotería creada exitosamente: ${createdLottery.name}`)
       toast.success('Lotería creada exitosamente en Supabase')
       return true
-      
+
     } catch (error: any) {
       console.error('❌ Error creating lottery:', error)
-      
+
       // Manejo específico de errores de duplicate key
-      if (error.message.includes('duplicate key') || 
-          error.message.includes('unique constraint') ||
-          error.message.includes('lotteries_name_key')) {
+      if (error.message.includes('duplicate key') ||
+        error.message.includes('unique constraint') ||
+        error.message.includes('lotteries_name_key')) {
         console.log(`🚫 Duplicate lottery name detected: ${lotteryData.name}`)
         toast.error(`Ya existe una lotería con el nombre: ${lotteryData.name}`)
         return false
       }
-      
+
       // Otros errores
       console.log(`⚠️ Supabase error creating lottery: ${error.message}`)
       toast.error(`Error al crear lotería: ${error.message}`)
@@ -315,7 +315,7 @@ export function useSupabaseLotteries() {
 
       toast.success('Lotería actualizada exitosamente')
       return true
-      
+
     } catch (error: any) {
       console.error('Error updating lottery:', error)
       toast.error(`Error al actualizar lotería: ${error.message}`)
@@ -350,7 +350,7 @@ export function useSupabaseLotteries() {
       setLotteries(current => current.filter(lottery => lottery.id !== lotteryId))
       toast.success('Lotería eliminada exitosamente')
       return true
-      
+
     } catch (error: any) {
       console.error('Error deleting lottery:', error)
       toast.error(`Error al eliminar lotería: ${error.message}`)
@@ -362,7 +362,7 @@ export function useSupabaseLotteries() {
   const toggleLotteryStatus = async (lotteryId: string): Promise<boolean> => {
     const lottery = lotteries.find(l => l.id === lotteryId)
     if (!lottery) return false
-    
+
     return await updateLottery(lotteryId, { isActive: !lottery.isActive })
   }
 

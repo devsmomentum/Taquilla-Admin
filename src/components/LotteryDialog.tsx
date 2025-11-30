@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, Trash } from "@phosphor-icons/react"
+import { Plus, Trash, X } from "@phosphor-icons/react"
 
 interface BetLimit {
   animalNumber: string
@@ -22,10 +22,20 @@ interface LotteryDialogProps {
   lottery?: Lottery
   onSave: (lottery: Lottery) => void
   onPlayTomorrowChange?: (lotteryId: string, newValue: boolean) => void
+  existingLotteries?: Lottery[]
 }
 
-export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomorrowChange }: LotteryDialogProps) {
+export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomorrowChange, existingLotteries = [] }: LotteryDialogProps) {
+  // Obtener nombres únicos de las loterías existentes para sugerencias
+  const uniqueNames = useMemo(() => {
+    return Array.from(new Set(existingLotteries.map(l => l.name))).sort()
+  }, [existingLotteries])
+
   const [name, setName] = useState(lottery?.name || "")
+  const [isCustomName, setIsCustomName] = useState(() => {
+    if (!lottery?.name) return uniqueNames.length === 0 // Si no hay nombres previos, empezar en modo custom
+    return !uniqueNames.includes(lottery.name)
+  })
   const [openingTime, setOpeningTime] = useState(lottery?.openingTime || "08:00")
   const [closingTime, setClosingTime] = useState(lottery?.closingTime || "12:00")
   const [drawTime, setDrawTime] = useState(lottery?.drawTime || "13:00")
@@ -44,6 +54,50 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
   const [hasGlobalLimit, setHasGlobalLimit] = useState(false)
   const [selectedAnimalForLimit, setSelectedAnimalForLimit] = useState<string>('')
   const [animalLimitAmount, setAnimalLimitAmount] = useState<string>('')
+
+  // Sincronizar estado cuando cambia la lotería seleccionada o se abre el diálogo
+  useEffect(() => {
+    if (open) {
+      if (lottery) {
+        // Modo edición
+        setName(lottery.name)
+        setOpeningTime(lottery.openingTime)
+        setClosingTime(lottery.closingTime)
+        setDrawTime(lottery.drawTime)
+        setIsActive(lottery.isActive)
+        setPlaysTomorrow(lottery.playsTomorrow)
+
+        setAnimalsX30(
+          lottery.prizes.filter(p => p.multiplier === 30).map(p => p.animalNumber)
+        )
+        setAnimalsX40(
+          lottery.prizes.filter(p => p.multiplier === 40).map(p => p.animalNumber)
+        )
+
+        // Determinar si es nombre custom
+        const isCustom = uniqueNames.length > 0 && !uniqueNames.includes(lottery.name)
+        setIsCustomName(isCustom)
+      } else {
+        // Modo creación (resetear)
+        setName("")
+        setOpeningTime("08:00")
+        setClosingTime("12:00")
+        setDrawTime("13:00")
+        setIsActive(true)
+        setPlaysTomorrow(true)
+        setAnimalsX30([])
+        setAnimalsX40([])
+        setIsCustomName(uniqueNames.length === 0)
+
+        // Resetear límites
+        setBetLimits([])
+        setHasGlobalLimit(false)
+        setGlobalLimit('')
+        setSelectedAnimalForLimit('')
+        setAnimalLimitAmount('')
+      }
+    }
+  }, [open, lottery, uniqueNames])
 
   const handleSave = () => {
     if (!name || !openingTime || !closingTime || !drawTime) {
@@ -93,16 +147,16 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
   }
 
   const toggleAnimalX30 = (animalNumber: string) => {
-    setAnimalsX30(prev => 
-      prev.includes(animalNumber) 
+    setAnimalsX30(prev =>
+      prev.includes(animalNumber)
         ? prev.filter(n => n !== animalNumber)
         : [...prev, animalNumber]
     )
   }
 
   const toggleAnimalX40 = (animalNumber: string) => {
-    setAnimalsX40(prev => 
-      prev.includes(animalNumber) 
+    setAnimalsX40(prev =>
+      prev.includes(animalNumber)
         ? prev.filter(n => n !== animalNumber)
         : [...prev, animalNumber]
     )
@@ -211,12 +265,57 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="name">Nombre de la Lotería</Label>
-            <Input
-              id="name"
-              placeholder="Ej: Terminal de La Rinconada"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+            {!isCustomName && uniqueNames.length > 0 ? (
+              <Select
+                value={uniqueNames.includes(name) ? name : ""}
+                onValueChange={(value) => {
+                  if (value === 'custom') {
+                    setIsCustomName(true)
+                    setName("")
+                  } else {
+                    setName(value)
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione una lotería existente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {uniqueNames.map((n) => (
+                    <SelectItem key={n} value={n}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom" className="font-semibold text-primary">
+                    ➕ Nuevo nombre...
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  id="name"
+                  placeholder="Escriba el nombre de la lotería"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  autoFocus
+                />
+                {uniqueNames.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setIsCustomName(false)
+                      setName("")
+                    }}
+                    title="Seleccionar existente"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-4">
@@ -264,15 +363,15 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
               <Label>Juega Mañana</Label>
               <p className="text-sm text-muted-foreground">Disponible para el próximo sorteo</p>
             </div>
-            <Switch 
-              checked={playsTomorrow} 
+            <Switch
+              checked={playsTomorrow}
               onCheckedChange={(value) => {
                 setPlaysTomorrow(value)
                 // Notificar el cambio si hay una lotería en edición
                 if (lottery?.id && onPlayTomorrowChange) {
                   onPlayTomorrowChange(lottery.id, value)
                 }
-              }} 
+              }}
             />
           </div>
 
@@ -361,7 +460,7 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
                   />
                   <Label htmlFor="global-limit" className="font-medium">Límite global para todos los animalitos</Label>
                 </div>
-                
+
                 {hasGlobalLimit && (
                   <div className="flex gap-2 ml-6">
                     <Input
@@ -476,6 +575,6 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
           <Button onClick={handleSave}>Guardar</Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </Dialog >
   )
 }

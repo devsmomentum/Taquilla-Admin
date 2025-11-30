@@ -53,16 +53,16 @@ import { useSupabaseTaquillaSales } from "@/hooks/use-supabase-taquilla-sales"
 
 function App() {
   // Ya no usamos useKV para draws, ahora usamos useSupabaseDraws
-  
-  const { 
-    pots, 
-    transfers, 
-    distributeBetToPots, 
+
+  const {
+    pots,
+    transfers,
+    distributeBetToPots,
     createTransfer,
     deductFromPot,
     updatePotBalance
   } = useSupabasePots()
-  
+
   // Hook específico para retiros (Módulo 9)
   const {
     withdrawals: moduleWithdrawals,
@@ -71,7 +71,7 @@ function App() {
     withdrawalStats,
     testConnection: testWithdrawalsConnection
   } = useSupabaseWithdrawals()
-  
+
   // Hook específico para API Keys (Módulo 10)
   const {
     apiKeys: supabaseApiKeys,
@@ -99,24 +99,24 @@ function App() {
     createSale: createTaquillaSale,
     deleteSale: deleteTaquillaSale
   } = useSupabaseTaquillaSales()
-  
+
   const [users, setUsers] = useKV<User[]>("users", [])
   // API Keys ahora se manejan completamente por el hook useSupabaseApiKeys
 
   const { currentUser, currentUserId, isLoading, login, logout, hasPermission } = useSupabaseAuth()
-  const { 
-    roles, 
-    isLoading: rolesLoading, 
-    createRole, 
-    updateRole, 
+  const {
+    roles,
+    isLoading: rolesLoading,
+    createRole,
+    updateRole,
     deleteRole,
-    loadRoles 
+    loadRoles
   } = useSupabaseRoles()
   const {
     users: supabaseUsers,
     isLoading: usersLoading,
     createUser,
-    updateUser, 
+    updateUser,
     deleteUser,
     toggleUserStatus,
     loadUsers,
@@ -263,7 +263,7 @@ function App() {
 
   const handleSaveLottery = async (lottery: Lottery) => {
     const exists = supabaseLotteries.find((l) => l.id === lottery.id)
-    
+
     if (exists) {
       // Actualizar lotería existente
       await updateLottery(lottery.id, lottery)
@@ -271,7 +271,7 @@ function App() {
       // Crear nuevo sorteo
       await createLottery(lottery)
     }
-    
+
     setEditingLottery(undefined)
     setLotteryDialogOpen(false)
   }
@@ -283,7 +283,7 @@ function App() {
 
   const confirmDeleteLottery = async () => {
     if (!lotteryToDelete) return
-    
+
     try {
       await deleteLottery(lotteryToDelete)
       toast.success("Lotería eliminada exitosamente")
@@ -302,7 +302,7 @@ function App() {
 
   const confirmDeleteTaquilla = async () => {
     if (!taquillaToDelete) return
-    
+
     try {
       const success = await deleteTaquilla(taquillaToDelete)
       if (success) {
@@ -325,7 +325,7 @@ function App() {
 
   const handleSaveBet = async (bet: Bet) => {
     console.log('🎯 handleSaveBet llamado con:', bet)
-    
+
     // Crear la jugada en Supabase
     const success = await createBet({
       lotteryId: bet.lotteryId,
@@ -350,7 +350,7 @@ function App() {
     const currentPots = pots || INITIAL_POTS
     const fromPotName = currentPots[fromIndex].name
     const toPotName = currentPots[toIndex].name
-    
+
     await createTransfer(fromPotName, toPotName, amount)
   }
 
@@ -359,7 +359,7 @@ function App() {
     const updatePotBalanceWrapper = async (potName: string, newBalance: number) => {
       await updatePotBalance(potName, newBalance)
     }
-    
+
     const success = await createModuleWithdrawal(pot, amount, updatePotBalanceWrapper)
     return success
   }
@@ -369,9 +369,9 @@ function App() {
     try {
       console.log('🎯 Procesando ganadores automáticamente...')
       console.log('Animal ganador:', drawData.animalNumber, drawData.animalName)
-      
+
       // Buscar todas las jugadas que apostaron al animal ganador de esta lotería
-      const winningBets = currentBets.filter(bet => 
+      const winningBets = currentBets.filter(bet =>
         bet.lotteryId === drawData.lotteryId &&
         bet.animalNumber === drawData.animalNumber &&
         !bet.isWinner // Solo las que aún no han ganado
@@ -436,7 +436,7 @@ function App() {
   const handleSaveRole = async (roleData: Omit<Role, 'id' | 'createdAt'>): Promise<boolean> => {
     try {
       let success = false
-      
+
       if (editingRole) {
         // Actualizar rol existente
         success = await updateRole(editingRole.id, roleData)
@@ -444,11 +444,11 @@ function App() {
         // Crear nuevo rol
         success = await createRole(roleData)
       }
-      
+
       if (success) {
         setEditingRole(undefined)
       }
-      
+
       return success
     } catch (error) {
       console.error('Error in handleSaveRole:', error)
@@ -462,14 +462,14 @@ function App() {
       toast.error("No se pueden eliminar roles del sistema")
       return
     }
-    
+
     setRoleToDelete(id)
     setDeleteRoleDialogOpen(true)
   }
 
   const confirmDeleteRole = async () => {
     if (!roleToDelete) return
-    
+
     const success = await deleteRole(roleToDelete)
     if (success) {
       setDeleteRoleDialogOpen(false)
@@ -504,14 +504,14 @@ function App() {
       toast.error("No puede eliminar su propio usuario")
       return
     }
-    
+
     setUserToDelete(id)
     setDeleteUserDialogOpen(true)
   }
 
   const confirmDeleteUser = async () => {
     if (!userToDelete) return
-    
+
     try {
       await deleteUser(userToDelete)
       toast.success("Usuario eliminado exitosamente")
@@ -530,7 +530,7 @@ function App() {
 
   const confirmDeleteDraw = async () => {
     if (!drawToDelete) return
-    
+
     try {
       await deleteDraw(drawToDelete.id)
       toast.success("Sorteo eliminado exitosamente")
@@ -567,7 +567,7 @@ function App() {
           isActive: apiKey.isActive,
           permissions: apiKey.permissions
         })
-        
+
         if (success) {
           toast.success("API Key actualizada exitosamente")
         } else {
@@ -578,7 +578,7 @@ function App() {
         if (!currentUserId) {
           throw new Error("Usuario no autenticado")
         }
-        
+
         const { key: newKey, success } = await createSupabaseApiKey({
           name: apiKey.name,
           description: apiKey.description,
@@ -586,10 +586,10 @@ function App() {
           permissions: apiKey.permissions,
           createdBy: currentUserId
         })
-        
+
         if (success && newKey) {
           toast.success("API Key creada exitosamente")
-          
+
           // Mostrar la key generada
           setTimeout(() => {
             toast.info(`Nueva API Key: ${newKey}`, {
@@ -601,7 +601,7 @@ function App() {
           throw new Error("Error creando API Key")
         }
       }
-      
+
       setEditingApiKey(undefined)
     } catch (error) {
       console.error('Error guardando API Key:', error)
@@ -616,10 +616,10 @@ function App() {
 
   const confirmDeleteApiKey = async () => {
     if (!apiKeyToDelete) return
-    
+
     try {
       const success = await deleteSupabaseApiKey(apiKeyToDelete)
-      
+
       if (success) {
         toast.success("API Key eliminada exitosamente")
         setDeleteApiKeyDialogOpen(false)
@@ -881,170 +881,170 @@ function App() {
 
           {/* Taquillas */}
           {hasPermission("taquillas") && (
-          <TabsContent value="taquillas" className="space-y-4 md:space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl md:text-2xl font-semibold">Taquillas</h2>
-                <p className="text-muted-foreground text-sm">Registrar, ver y aprobar taquillas</p>
+            <TabsContent value="taquillas" className="space-y-4 md:space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl md:text-2xl font-semibold">Taquillas</h2>
+                  <p className="text-muted-foreground text-sm">Registrar, ver y aprobar taquillas</p>
+                </div>
+                <Button onClick={() => setTaquillaDialogOpen(true)}>
+                  <Plus className="mr-2" /> Registrar Taquilla
+                </Button>
               </div>
-              <Button onClick={() => setTaquillaDialogOpen(true)}>
-                <Plus className="mr-2" /> Registrar Taquilla
-              </Button>
-            </div>
 
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="relative flex-1">
-                <MagnifyingGlass className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar taquillas..."
-                  value={taquillaSearch}
-                  onChange={(e) => setTaquillaSearch(e.target.value)}
-                  className="pl-8"
-                />
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="relative flex-1">
+                  <MagnifyingGlass className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar taquillas..."
+                    value={taquillaSearch}
+                    onChange={(e) => setTaquillaSearch(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                <Select
+                  value={taquillaFilters.isActive === undefined ? "all" : taquillaFilters.isActive ? "active" : "inactive"}
+                  onValueChange={(value) =>
+                    setTaquillaFilters((prev) => ({
+                      ...prev,
+                      isActive: value === "all" ? undefined : value === "active",
+                    }))
+                  }
+                >
+                  <SelectTrigger className="w-full md:w-[180px]">
+                    <Funnel className="mr-2 h-4 w-4" />
+                    <SelectValue placeholder="Estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="active">Activos</SelectItem>
+                    <SelectItem value="inactive">Inactivos</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <Select
-                value={taquillaFilters.isActive === undefined ? "all" : taquillaFilters.isActive ? "active" : "inactive"}
-                onValueChange={(value) =>
-                  setTaquillaFilters((prev) => ({
-                    ...prev,
-                    isActive: value === "all" ? undefined : value === "active",
-                  }))
-                }
-              >
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <Funnel className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="active">Activos</SelectItem>
-                  <SelectItem value="inactive">Inactivos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Dirección</TableHead>
-                    <TableHead>Teléfono</TableHead>
-                    <TableHead>Correo</TableHead>
-                    <TableHead>Ventas</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTaquillas.map((t) => (
-                    <TableRow key={t.id}>
-                      <TableCell>{t.fullName}</TableCell>
-                      <TableCell>{t.address}</TableCell>
-                      <TableCell>{t.telefono || '-'}</TableCell>
-                      <TableCell>{t.email}</TableCell>
-                      <TableCell>
-                        {formatCurrency(
-                          taquillaSales
-                            .filter(s => s.taquillaId === t.id)
-                            .reduce((sum, s) => sum + s.amount, 0)
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={t.isApproved}
-                            onCheckedChange={(checked) => toggleTaquillaStatus(t.id, checked)}
-                          />
-                          <span className="text-sm">{t.isApproved ? "Activo" : "Inactivo"}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex gap-1 justify-end">
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            onClick={() => { setSaleTaquilla(t); setRegisterSaleOpen(true) }}
-                            title="Registrar Venta"
-                          >
-                            <Storefront className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            onClick={() => { setTaquillaStats(t); setTaquillaStatsOpen(true) }}
-                            title="Ver Estadísticas"
-                          >
-                            <ChartLine className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            onClick={() => { setTaquillaEditing(t); setTaquillaEditOpen(true) }}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="icon" 
-                            variant="ghost" 
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleDeleteTaquilla(t.id)}
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nombre</TableHead>
+                      <TableHead>Dirección</TableHead>
+                      <TableHead>Teléfono</TableHead>
+                      <TableHead>Correo</TableHead>
+                      <TableHead>Ventas</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTaquillas.map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell>{t.fullName}</TableCell>
+                        <TableCell>{t.address}</TableCell>
+                        <TableCell>{t.telefono || '-'}</TableCell>
+                        <TableCell>{t.email}</TableCell>
+                        <TableCell>
+                          {formatCurrency(
+                            taquillaSales
+                              .filter(s => s.taquillaId === t.id)
+                              .reduce((sum, s) => sum + s.amount, 0)
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={t.isApproved}
+                              onCheckedChange={(checked) => toggleTaquillaStatus(t.id, checked)}
+                            />
+                            <span className="text-sm">{t.isApproved ? "Activo" : "Inactivo"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => { setSaleTaquilla(t); setRegisterSaleOpen(true) }}
+                              title="Registrar Venta"
+                            >
+                              <Storefront className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => { setTaquillaStats(t); setTaquillaStatsOpen(true) }}
+                              title="Ver Estadísticas"
+                            >
+                              <ChartLine className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => { setTaquillaEditing(t); setTaquillaEditOpen(true) }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteTaquilla(t.id)}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
 
-              </Table>
-            </div>
-            {/* Diálogo de creación de taquilla */}
-            <TaquillaDialog
-              open={taquillaDialogOpen}
-              onOpenChange={setTaquillaDialogOpen}
-              onSave={async (taq) => {
-                const success = await createTaquilla(taq)
-                if (success) {
-                  toast.success("Taquilla creada exitosamente")
-                } else {
-                  toast.error("Error al crear taquilla")
-                }
-                return success
-              }}
-            />
-            <TaquillaEditDialog
-              open={taquillaEditOpen}
-              taquilla={taquillaEditing}
-              onOpenChange={setTaquillaEditOpen}
-              onSave={async (updates) => {
-                const { id, ...rest } = updates
-                return await updateTaquilla(id, rest)
-              }}
-            />
-            <TaquillaStatsDialog
-              open={taquillaStatsOpen}
-              onOpenChange={setTaquillaStatsOpen}
-              taquilla={taquillaStats}
-              bets={currentBets}
-              user={taquillaStats ? supabaseUsers.find(u => u.email === taquillaStats.email) : undefined}
-            />
-            <RegisterSaleDialog
-              open={registerSaleOpen}
-              onOpenChange={setRegisterSaleOpen}
-              taquilla={saleTaquilla}
-              onSave={async (amount, date, notes) => {
-                if (!saleTaquilla) return false
-                return await createTaquillaSale({
-                  taquillaId: saleTaquilla.id,
-                  amount,
-                  saleDate: date,
-                  notes
-                })
-              }}
-            />
-          </TabsContent>
+                </Table>
+              </div>
+              {/* Diálogo de creación de taquilla */}
+              <TaquillaDialog
+                open={taquillaDialogOpen}
+                onOpenChange={setTaquillaDialogOpen}
+                onSave={async (taq) => {
+                  const success = await createTaquilla(taq)
+                  if (success) {
+                    toast.success("Taquilla creada exitosamente")
+                  } else {
+                    toast.error("Error al crear taquilla")
+                  }
+                  return success
+                }}
+              />
+              <TaquillaEditDialog
+                open={taquillaEditOpen}
+                taquilla={taquillaEditing}
+                onOpenChange={setTaquillaEditOpen}
+                onSave={async (updates) => {
+                  const { id, ...rest } = updates
+                  return await updateTaquilla(id, rest)
+                }}
+              />
+              <TaquillaStatsDialog
+                open={taquillaStatsOpen}
+                onOpenChange={setTaquillaStatsOpen}
+                taquilla={taquillaStats}
+                bets={currentBets}
+                user={taquillaStats ? supabaseUsers.find(u => u.email === taquillaStats.email) : undefined}
+              />
+              <RegisterSaleDialog
+                open={registerSaleOpen}
+                onOpenChange={setRegisterSaleOpen}
+                taquilla={saleTaquilla}
+                onSave={async (amount, date, notes) => {
+                  if (!saleTaquilla) return false
+                  return await createTaquillaSale({
+                    taquillaId: saleTaquilla.id,
+                    amount,
+                    saleDate: date,
+                    notes
+                  })
+                }}
+              />
+            </TabsContent>
           )}
 
           <TabsContent value="reports" className="space-y-4 md:space-y-6">
@@ -1053,13 +1053,13 @@ function App() {
               <p className="text-muted-foreground text-sm">Análisis en tiempo real de ventas y premios</p>
             </div>
 
-            <ReportsCard 
-              draws={currentDraws} 
-              lotteries={currentLotteries} 
+            <ReportsCard
+              draws={currentDraws}
+              lotteries={currentLotteries}
               bets={currentBets}
               users={supabaseUsers}
             />
-            
+
             <DrawStatsCard bets={currentBets} draws={currentDraws} lotteries={currentLotteries} />
           </TabsContent>
 
@@ -1306,11 +1306,11 @@ function App() {
                 <h2 className="text-xl md:text-2xl font-semibold">Administración de Sorteos</h2>
                 <p className="text-muted-foreground text-sm">Crear, editar y eliminar resultados de sorteos realizados</p>
               </div>
-              <Button 
+              <Button
                 onClick={() => {
                   setEditingDraw(undefined)
                   setDrawManagementDialogOpen(true)
-                }} 
+                }}
                 className="w-full sm:w-auto"
               >
                 <Plus className="mr-2" />
@@ -1720,8 +1720,8 @@ function App() {
                 <p className="text-muted-foreground text-sm">Administrar usuarios del sistema (Híbrido: Supabase + Local)</p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <Button 
-                  onClick={syncUsersToSupabase} 
+                <Button
+                  onClick={syncUsersToSupabase}
                   variant="outline"
                   className="w-full sm:w-auto"
                   title="Sincronizar usuarios locales con Supabase"
@@ -1729,8 +1729,8 @@ function App() {
                   <ShieldCheck className="mr-2" />
                   Sincronizar
                 </Button>
-                <Button 
-                  onClick={cleanDuplicateUsers} 
+                <Button
+                  onClick={cleanDuplicateUsers}
                   variant="outline"
                   className="w-full sm:w-auto"
                   title="Limpiar usuarios duplicados en Supabase"
@@ -1911,54 +1911,54 @@ function App() {
                     <Card key={role.id}>
                       <CardHeader>
                         <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <CardTitle>{role.name}</CardTitle>
-                            {role.isSystem && (
-                              <Badge variant="secondary" className="text-xs">
-                                Sistema
-                              </Badge>
-                            )}
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <CardTitle>{role.name}</CardTitle>
+                              {role.isSystem && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Sistema
+                                </Badge>
+                              )}
+                            </div>
+                            <CardDescription>{role.description}</CardDescription>
                           </div>
-                          <CardDescription>{role.description}</CardDescription>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditRole(role)}
+                            >
+                              <Pencil />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteRole(role.id)}
+                              disabled={role.isSystem}
+                            >
+                              <Trash />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditRole(role)}
-                          >
-                            <Pencil />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteRole(role.id)}
-                            disabled={role.isSystem}
-                          >
-                            <Trash />
-                          </Button>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div>
+                          <p className="text-sm font-medium mb-2">Permisos:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {(role.permissions || []).map((perm) => (
+                              <Badge key={perm} variant="outline" className="text-xs">
+                                {perm}
+                              </Badge>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div>
-                        <p className="text-sm font-medium mb-2">Permisos:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {(role.permissions || []).map((perm) => (
-                            <Badge key={perm} variant="outline" className="text-xs">
-                              {perm}
-                            </Badge>
-                          ))}
+                        <Separator />
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Usuarios:</span>
+                          <span className="font-medium">{usersWithRole.length}</span>
                         </div>
-                      </div>
-                      <Separator />
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Usuarios:</span>
-                        <span className="font-medium">{usersWithRole.length}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
                   )
                 })
               )}
@@ -1980,8 +1980,8 @@ function App() {
                   </p>
                 </div>
               </div>
-              <Button 
-                onClick={() => setApiKeyDialogOpen(true)} 
+              <Button
+                onClick={() => setApiKeyDialogOpen(true)}
                 className="w-full sm:w-auto"
                 size="lg"
               >
@@ -1993,8 +1993,8 @@ function App() {
             <Alert className="border-blue-200 bg-blue-50">
               <Key className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-blue-800">
-                <strong>Información importante:</strong> Las API Keys permiten que sistemas de ventas externos se conecten 
-                de forma segura para enviar jugadas y consultar información. Mantenga sus keys privadas y revoque 
+                <strong>Información importante:</strong> Las API Keys permiten que sistemas de ventas externos se conecten
+                de forma segura para enviar jugadas y consultar información. Mantenga sus keys privadas y revoque
                 acceso cuando sea necesario.
               </AlertDescription>
             </Alert>
@@ -2028,7 +2028,7 @@ function App() {
                       : "Intente con otros criterios de búsqueda o cree una nueva API Key"}
                   </p>
                   {currentApiKeys.length === 0 && (
-                    <Button 
+                    <Button
                       onClick={() => setApiKeyDialogOpen(true)}
                       size="lg"
                     >
@@ -2144,6 +2144,7 @@ function App() {
         lottery={editingLottery}
         onSave={handleSaveLottery}
         onPlayTomorrowChange={onPlayTomorrowChange}
+        existingLotteries={supabaseLotteries}
       />
 
       <BetDialog
@@ -2195,16 +2196,16 @@ function App() {
           } else {
             // Crear nuevo sorteo
             const success = await createDraw(drawData)
-            
+
             if (success) {
               // Procesar ganadores automáticamente
               const { winnersCount, totalPayout } = await processWinnersAutomatically(drawData)
-              
+
               // Actualizar el sorteo con la información de ganadores y premios
               // (El sorteo ya fue creado, solo actualizamos estos campos)
               console.log(`✅ Sorteo creado con ${winnersCount} ganadores y Bs. ${totalPayout} en premios`)
             }
-            
+
             return success
           }
         }}
@@ -2395,7 +2396,7 @@ function App() {
                   </p>
                   <p className="text-sm">
                     <span className="font-semibold">Roles:</span>{" "}
-                    {supabaseUsers.find(u => u.id === userToDelete)?.roleIds?.map(roleId => 
+                    {supabaseUsers.find(u => u.id === userToDelete)?.roleIds?.map(roleId =>
                       roles.find(r => r.id === roleId)?.name
                     ).filter(Boolean).join(", ") || "Ninguno"}
                   </p>
