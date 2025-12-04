@@ -105,6 +105,17 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
       return
     }
 
+    // Validar tiempos
+    if (openingTime >= closingTime) {
+      toast.error("La hora de apertura debe ser anterior a la hora de cierre")
+      return
+    }
+
+    if (openingTime >= drawTime) {
+      toast.error("La hora de apertura debe ser anterior a la hora de jugada")
+      return
+    }
+
     // Crear premios para animales x30
     const prizesX30: Prize[] = animalsX30.map((animalNumber) => {
       const animal = ANIMALS.find(a => a.number === animalNumber)

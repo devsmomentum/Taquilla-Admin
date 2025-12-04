@@ -64,7 +64,64 @@ export interface Withdrawal {
   fromPot: string
 }
 
-export type ModulePermission = 
+export interface Taquilla {
+  id: string
+  fullName: string
+  address: string
+  telefono?: string
+  email: string
+  username?: string
+  password?: string
+  passwordHash?: string
+  isApproved: boolean
+  approvedBy?: string
+  approvedAt?: string
+  createdAt: string
+  agencyId?: string // Agencia a la que pertenece
+  commercializerId?: string // Comercializadora (a través de agencia)
+}
+
+export interface Agency {
+  id: string
+  name: string
+  address: string
+  logo?: string
+  userId?: string // Usuario asociado (rol Agencia)
+  commercializerId: string // ID de la comercializadora
+  shareOnSales: number
+  shareOnProfits: number
+  currentBalance: number
+  isActive: boolean
+  createdAt: string
+}
+
+export interface Comercializadora {
+  id: string
+  name: string
+  email: string
+  address?: string
+  logo?: string
+  userId?: string // Usuario asociado (rol Comercializador)
+  shareOnSales: number
+  shareOnProfits: number
+  isDefault: boolean
+  isActive: boolean
+  createdAt: string
+  createdBy?: string
+}
+
+export interface Porcentaje {
+  id: string
+  entityType: 'general' | 'comercializadora' | 'agencia'
+  entityId?: string
+  adminPercentage: number
+  commercializerPercentage: number
+  agencyPercentage: number
+  taquillaPercentage: number
+  createdAt: string
+}
+
+export type ModulePermission =
   | "dashboard"
   | "reports"
   | "lotteries"
@@ -75,6 +132,13 @@ export type ModulePermission =
   | "roles"
   | "api-keys"
   | "taquillas"
+  | "taquillas.read"
+  | "taquillas.create"
+  | "agencias"
+  | "agencias.read"
+  | "agencias.create"
+  | "comercializadoras"
+  | "porcentajes"
 
 export interface Role {
   id: string
@@ -156,19 +220,3 @@ export const ANIMALS = [
   { number: "39", name: "Tijeras" },
   { number: "40", name: "Mesa" },
 ]
-
-// Nueva entidad: Taquillas
-export interface Taquilla {
-  id: string
-  fullName: string
-  address: string
-  telefono?: string
-  email: string
-  username?: string
-  password?: string
-  passwordHash?: string
-  isApproved: boolean
-  approvedBy?: string
-  approvedAt?: string
-  createdAt: string
-}

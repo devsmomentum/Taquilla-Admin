@@ -34,8 +34,11 @@ import { useSupabasePots } from "@/hooks/use-supabase-pots"
 import { useSupabaseWithdrawals } from "@/hooks/use-supabase-withdrawals"
 import { useSupabaseApiKeys } from "@/hooks/use-supabase-apikeys"
 import { useSupabaseTaquillas } from "@/hooks/use-supabase-taquillas"
+import { useLocalAgencies } from "@/hooks/use-local-agencies"
 import { useAutoPlayTomorrow } from "@/hooks/use-auto-play-tomorrow"
-import { Plus, Ticket, Trophy, Vault, ListBullets, Calendar, Pencil, Trash, Users, ShieldCheck, SignOut, MagnifyingGlass, Funnel, ChartLine, Key, Copy, Eye, EyeSlash, Target, Storefront } from "@phosphor-icons/react"
+import { useSupabaseComercializadoras } from "@/hooks/use-supabase-comercializadoras"
+import { AgenciesTab } from "@/components/AgenciesTab"
+import { ComercializadorasTab } from "@/components/ComercializadorasTab"
 import { toast } from "sonner"
 import { Toaster } from "@/components/ui/sonner"
 import { format } from "date-fns"
@@ -50,9 +53,12 @@ import { TaquillaStatsDialog } from "@/components/TaquillaStatsDialog"
 import { RegisterSaleDialog } from "@/components/RegisterSaleDialog"
 import { Switch } from "@/components/ui/switch"
 import { useSupabaseTaquillaSales } from "@/hooks/use-supabase-taquilla-sales"
+import { Plus, Ticket, Trophy, Vault, ListBullets, Calendar, Pencil, Trash, Users, ShieldCheck, SignOut, MagnifyingGlass, Funnel, ChartLine, Key, Copy, Eye, EyeSlash, Target, Storefront, Buildings } from "@phosphor-icons/react"
 
 function App() {
   // Ya no usamos useKV para draws, ahora usamos useSupabaseDraws
+
+  const { currentUser, currentUserId, isLoading, login, logout, hasPermission } = useSupabaseAuth()
 
   const {
     pots,
@@ -92,7 +98,7 @@ function App() {
     updateTaquilla,
     toggleTaquillaStatus,
     deleteTaquilla
-  } = useSupabaseTaquillas()
+  } = useSupabaseTaquillas(currentUser)
 
   const {
     sales: taquillaSales,
@@ -100,10 +106,27 @@ function App() {
     deleteSale: deleteTaquillaSale
   } = useSupabaseTaquillaSales()
 
+  const {
+    agencies,
+    isLoading: agenciesLoading,
+    createAgency,
+    updateAgency,
+    deleteAgency
+  } = useLocalAgencies(currentUser)
+
+  // Hook de Comercializadoras
+  const {
+    comercializadoras,
+    isLoading: comercializadorasLoading,
+    createComercializadora,
+    updateComercializadora,
+    deleteComercializadora,
+    setDefaultComercializadora
+  } = useSupabaseComercializadoras(currentUser)
+
   const [users, setUsers] = useKV<User[]>("users", [])
   // API Keys ahora se manejan completamente por el hook useSupabaseApiKeys
 
-  const { currentUser, currentUserId, isLoading, login, logout, hasPermission } = useSupabaseAuth()
   const {
     roles,
     isLoading: rolesLoading,
@@ -208,11 +231,10 @@ function App() {
   const [winnerFilters, setWinnerFilters] = useState<{ lotteryId?: string }>({})
   const [drawSearch, setDrawSearch] = useState("")
   const [drawFilters, setDrawFilters] = useState<{ lotteryId?: string }>({})
+  const [activeTab, setActiveTab] = useState("dashboard")
   const [transferSearch, setTransferSearch] = useState("")
   const [withdrawalSearch, setWithdrawalSearch] = useState("")
   const [apiKeySearch, setApiKeySearch] = useState("")
-
-  const [activeTab, setActiveTab] = useState("dashboard")
 
   useEffect(() => {
     if (!currentUser) return
@@ -229,6 +251,8 @@ function App() {
       { id: "roles", permission: "roles" },
       { id: "api-keys", permission: "api-keys" },
       { id: "taquillas", permission: "taquillas" },
+      { id: "agencias", permission: "agencias" },
+      { id: "comercializadoras", permission: "comercializadoras" },
     ]
 
     // Find the first tab the user has permission for
@@ -663,6 +687,7 @@ function App() {
   const currentWithdrawals = moduleWithdrawals || []
   const currentUsers = supabaseUsers || []
   const currentRoles = roles || []
+  const currentTaquillas = taquillas || []
   // API Keys manejadas completamente por el hook
   const currentApiKeys = supabaseApiKeys || []
 
@@ -673,7 +698,7 @@ function App() {
   const filteredBets = filterBets(activeBets, betSearch, betFilters)
   const filteredUsers = filterUsers(currentUsers, userSearch, userFilters)
   const filteredRoles = filterRoles(currentRoles, roleSearch)
-  const filteredTaquillas = filterTaquillas(taquillas, taquillaSearch, taquillaFilters)
+  const filteredTaquillas = filterTaquillas(currentTaquillas, taquillaSearch, taquillaFilters)
   const filteredWinners = filterBets(winners, winnerSearch, winnerFilters)
   const filteredDraws = currentDraws.filter((draw) => {
     const matchesSearch =
@@ -809,10 +834,22 @@ function App() {
                   <span className="hidden md:inline">API Keys</span>
                 </TabsTrigger>
               )}
-              {hasPermission("taquillas") && (
+              {(hasPermission("taquillas") || hasPermission("taquillas.read")) && (
                 <TabsTrigger value="taquillas" className="flex-shrink-0">
                   <Storefront className="md:mr-2" />
                   <span className="hidden md:inline">Taquillas</span>
+                </TabsTrigger>
+              )}
+              {(hasPermission("agencias") || hasPermission("agencias.read")) && (
+                <TabsTrigger value="agencias" className="flex-shrink-0">
+                  <Buildings className="md:mr-2" />
+                  <span className="hidden md:inline">Agencias</span>
+                </TabsTrigger>
+              )}
+              {hasPermission("comercializadoras") && (
+                <TabsTrigger value="comercializadoras" className="flex-shrink-0">
+                  <Buildings className="md:mr-2" weight="fill" />
+                  <span className="hidden md:inline">Comercializadoras</span>
                 </TabsTrigger>
               )}
             </TabsList>
@@ -880,172 +917,7 @@ function App() {
           </TabsContent>
 
           {/* Taquillas */}
-          {hasPermission("taquillas") && (
-            <TabsContent value="taquillas" className="space-y-4 md:space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl md:text-2xl font-semibold">Taquillas</h2>
-                  <p className="text-muted-foreground text-sm">Registrar, ver y aprobar taquillas</p>
-                </div>
-                <Button onClick={() => setTaquillaDialogOpen(true)}>
-                  <Plus className="mr-2" /> Registrar Taquilla
-                </Button>
-              </div>
 
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="relative flex-1">
-                  <MagnifyingGlass className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar taquillas..."
-                    value={taquillaSearch}
-                    onChange={(e) => setTaquillaSearch(e.target.value)}
-                    className="pl-8"
-                  />
-                </div>
-                <Select
-                  value={taquillaFilters.isActive === undefined ? "all" : taquillaFilters.isActive ? "active" : "inactive"}
-                  onValueChange={(value) =>
-                    setTaquillaFilters((prev) => ({
-                      ...prev,
-                      isActive: value === "all" ? undefined : value === "active",
-                    }))
-                  }
-                >
-                  <SelectTrigger className="w-full md:w-[180px]">
-                    <Funnel className="mr-2 h-4 w-4" />
-                    <SelectValue placeholder="Estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="active">Activos</SelectItem>
-                    <SelectItem value="inactive">Inactivos</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nombre</TableHead>
-                      <TableHead>Dirección</TableHead>
-                      <TableHead>Teléfono</TableHead>
-                      <TableHead>Correo</TableHead>
-                      <TableHead>Ventas</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredTaquillas.map((t) => (
-                      <TableRow key={t.id}>
-                        <TableCell>{t.fullName}</TableCell>
-                        <TableCell>{t.address}</TableCell>
-                        <TableCell>{t.telefono || '-'}</TableCell>
-                        <TableCell>{t.email}</TableCell>
-                        <TableCell>
-                          {formatCurrency(
-                            taquillaSales
-                              .filter(s => s.taquillaId === t.id)
-                              .reduce((sum, s) => sum + s.amount, 0)
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={t.isApproved}
-                              onCheckedChange={(checked) => toggleTaquillaStatus(t.id, checked)}
-                            />
-                            <span className="text-sm">{t.isApproved ? "Activo" : "Inactivo"}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex gap-1 justify-end">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => { setSaleTaquilla(t); setRegisterSaleOpen(true) }}
-                              title="Registrar Venta"
-                            >
-                              <Storefront className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => { setTaquillaStats(t); setTaquillaStatsOpen(true) }}
-                              title="Ver Estadísticas"
-                            >
-                              <ChartLine className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => { setTaquillaEditing(t); setTaquillaEditOpen(true) }}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => handleDeleteTaquilla(t.id)}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-
-                </Table>
-              </div>
-              {/* Diálogo de creación de taquilla */}
-              <TaquillaDialog
-                open={taquillaDialogOpen}
-                onOpenChange={setTaquillaDialogOpen}
-                onSave={async (taq) => {
-                  const success = await createTaquilla(taq)
-                  if (success) {
-                    toast.success("Taquilla creada exitosamente")
-                  } else {
-                    toast.error("Error al crear taquilla")
-                  }
-                  return success
-                }}
-              />
-              <TaquillaEditDialog
-                open={taquillaEditOpen}
-                taquilla={taquillaEditing}
-                onOpenChange={setTaquillaEditOpen}
-                onSave={async (updates) => {
-                  const { id, ...rest } = updates
-                  return await updateTaquilla(id, rest)
-                }}
-              />
-              <TaquillaStatsDialog
-                open={taquillaStatsOpen}
-                onOpenChange={setTaquillaStatsOpen}
-                taquilla={taquillaStats}
-                bets={currentBets}
-                user={taquillaStats ? supabaseUsers.find(u => u.email === taquillaStats.email) : undefined}
-              />
-              <RegisterSaleDialog
-                open={registerSaleOpen}
-                onOpenChange={setRegisterSaleOpen}
-                taquilla={saleTaquilla}
-                onSave={async (amount, date, notes) => {
-                  if (!saleTaquilla) return false
-                  return await createTaquillaSale({
-                    taquillaId: saleTaquilla.id,
-                    amount,
-                    saleDate: date,
-                    notes
-                  })
-                }}
-              />
-            </TabsContent>
-          )}
 
           <TabsContent value="reports" className="space-y-4 md:space-y-6">
             <div>
@@ -2132,6 +2004,157 @@ function App() {
               </div>
             )}
           </TabsContent>
+
+          <TabsContent value="taquillas" className="space-y-4 md:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl md:text-2xl font-semibold">Gestión de Taquillas</h2>
+                <p className="text-muted-foreground text-sm">Administrar puntos de venta y usuarios</p>
+              </div>
+              {hasPermission("taquillas") && (
+                <Button onClick={() => setTaquillaDialogOpen(true)} className="w-full sm:w-auto">
+                  <Plus className="mr-2" />
+                  Nueva Taquilla
+                </Button>
+              )}
+            </div>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar taquillas..."
+                      value={taquillaSearch}
+                      onChange={(e) => setTaquillaSearch(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select
+                    value={taquillaFilters.isActive === undefined ? "all" : taquillaFilters.isActive ? "active" : "inactive"}
+                    onValueChange={(val) => setTaquillaFilters(prev => ({ ...prev, isActive: val === "all" ? undefined : val === "active" }))}
+                  >
+                    <SelectTrigger className="w-full md:w-[200px]">
+                      <SelectValue placeholder="Estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="active">Activas</SelectItem>
+                      <SelectItem value="inactive">Inactivas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {taquillasLoading ? (
+                <div className="col-span-full flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : filteredTaquillas.length === 0 ? (
+                <div className="col-span-full text-center py-8 text-muted-foreground">
+                  No se encontraron taquillas
+                </div>
+              ) : (
+                filteredTaquillas.map((taquilla) => (
+                  <Card key={taquilla.id}>
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg">{taquilla.fullName}</CardTitle>
+                          <CardDescription>{taquilla.address}</CardDescription>
+                        </div>
+                        <Badge variant={taquilla.isApproved ? "default" : "secondary"}>
+                          {taquilla.isApproved ? "Activa" : "Inactiva"}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground block">Usuario:</span>
+                          {taquilla.username || "N/A"}
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block">Teléfono:</span>
+                          {taquilla.telefono || "N/A"}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t">
+                        <span className="text-sm text-muted-foreground">Estado</span>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={taquilla.isApproved}
+                            onCheckedChange={(checked) => toggleTaquillaStatus(taquilla.id, checked)}
+                          />
+                          <span className="text-sm">{taquilla.isApproved ? "Activo" : "Inactivo"}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 justify-end">
+                        <Button variant="outline" size="sm" onClick={() => {
+                          setSaleTaquilla(taquilla)
+                          setRegisterSaleOpen(true)
+                        }}>
+                          <Ticket className="mr-2 h-4 w-4" />
+                          Venta
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => {
+                          setTaquillaStats(taquilla)
+                          setTaquillaStatsOpen(true)
+                        }}>
+                          <ChartLine className="mr-2 h-4 w-4" />
+                          Estadísticas
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => {
+                          setTaquillaEditing(taquilla)
+                          setTaquillaEditOpen(true)
+                        }}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteTaquilla(taquilla.id)}>
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="agencias" className="space-y-4 md:space-y-6">
+            <AgenciesTab
+              comercializadoras={comercializadoras}
+              agencies={agencies}
+              isLoading={agenciesLoading}
+              onCreate={createAgency}
+              onUpdate={updateAgency}
+              onDelete={deleteAgency}
+              canCreate={hasPermission("agencias")}
+            />
+          </TabsContent>
+
+          <TabsContent value="comercializadoras" className="space-y-4 md:space-y-6">
+            <ComercializadorasTab
+              comercializadoras={comercializadoras}
+              isLoading={comercializadorasLoading}
+              onCreate={createComercializadora}
+              onUpdate={updateComercializadora}
+              onDelete={async (id) => {
+                const success = await deleteComercializadora(id)
+                if (!success) {
+                  toast.error('No se pudo eliminar la comercializadora')
+                }
+              }}
+              onSetDefault={setDefaultComercializadora}
+              currentUserId={currentUserId}
+              createUser={createUser}
+            />
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -2205,7 +2228,6 @@ function App() {
               // (El sorteo ya fue creado, solo actualizamos estos campos)
               console.log(`✅ Sorteo creado con ${winnersCount} ganadores y Bs. ${totalPayout} en premios`)
             }
-
             return success
           }
         }}
@@ -2603,6 +2625,55 @@ function App() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <TaquillaDialog
+        open={taquillaDialogOpen}
+        onOpenChange={setTaquillaDialogOpen}
+        onSave={async (data) => createTaquilla(data)}
+        agencies={agencies}
+      />
+
+      <TaquillaEditDialog
+        open={taquillaEditOpen}
+        taquilla={taquillaEditing}
+        onOpenChange={(open) => {
+          setTaquillaEditOpen(open)
+          if (!open) setTaquillaEditing(undefined)
+        }}
+        onSave={async (updates) => {
+          const { id, ...rest } = updates
+          return await updateTaquilla(id, rest)
+        }}
+        agencies={agencies}
+      />
+
+      <TaquillaStatsDialog
+        open={taquillaStatsOpen}
+        taquilla={taquillaStats}
+        onOpenChange={(open) => {
+          setTaquillaStatsOpen(open)
+          if (!open) setTaquillaStats(null)
+        }}
+        bets={currentBets}
+        user={currentUsers.find(u => u.email === taquillaStats?.email)}
+      />
+
+      <RegisterSaleDialog
+        open={registerSaleOpen}
+        taquilla={saleTaquilla}
+        onOpenChange={(open) => {
+          setRegisterSaleOpen(open)
+          if (!open) setSaleTaquilla(null)
+        }}
+        onSave={async (amount, date, notes) => {
+          if (!saleTaquilla) return false
+          return await createTaquillaSale({
+            taquillaId: saleTaquilla.id,
+            amount,
+            saleDate: date,
+            notes
+          })
+        }}
+      />
     </div>
   )
 }

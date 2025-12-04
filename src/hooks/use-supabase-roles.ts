@@ -15,7 +15,7 @@ export interface SupabaseRole {
 
 export function useSupabaseRoles() {
   const [roles, setRoles] = useState<Role[]>([])
-  const [isLoading, setIsLoading] = useState(false) // Cambiado de true a false
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Cargar roles desde Supabase
@@ -27,7 +27,23 @@ export function useSupabaseRoles() {
           id: 'admin',
           name: 'Administrador',
           description: 'Acceso completo al sistema',
-          permissions: ['dashboard', 'lotteries', 'bets', 'winners', 'history', 'users', 'roles', 'taquillas'],
+          permissions: ['dashboard', 'reports', 'lotteries', 'bets', 'winners', 'history', 'users', 'roles', 'api-keys', 'taquillas', 'agencias', 'comercializadoras'],
+          createdAt: new Date().toISOString(),
+          isSystem: true,
+        },
+        {
+          id: 'comercializadora',
+          name: 'Comercializadora',
+          description: 'Gestiona agencias y supervisa taquillas',
+          permissions: ['agencias', 'agencias.read', 'agencias.create', 'taquillas.read'],
+          createdAt: new Date().toISOString(),
+          isSystem: true,
+        },
+        {
+          id: 'agencia',
+          name: 'Agencia',
+          description: 'Gestiona taquillas bajo su control',
+          permissions: ['taquillas', 'taquillas.read', 'taquillas.create'],
           createdAt: new Date().toISOString(),
           isSystem: true,
         },
@@ -61,7 +77,7 @@ export function useSupabaseRoles() {
         id: role.id,
         name: role.name,
         description: role.description,
-        permissions: role.permissions as any[], // Convertir permisos JSON
+        permissions: role.permissions as any[],
         createdAt: role.created_at,
         isSystem: role.is_system,
       }))
@@ -70,7 +86,7 @@ export function useSupabaseRoles() {
       setRoles(current => {
         const localRoles = current.filter(role => role.id.startsWith('local-'))
         const supabaseRoles = transformedRoles
-        
+
         // Evitar duplicados por nombre
         const uniqueRoles = [...supabaseRoles]
         localRoles.forEach(localRole => {
@@ -78,21 +94,37 @@ export function useSupabaseRoles() {
             uniqueRoles.push(localRole)
           }
         })
-        
+
         return uniqueRoles
       })
     } catch (error: any) {
       console.error('Error loading roles:', error)
       setError(error.message || 'Error al cargar roles')
       toast.error('Error al cargar roles desde Supabase')
-      
+
       // Fallback a roles por defecto en caso de error
       const defaultRoles: Role[] = [
         {
           id: 'admin',
           name: 'Administrador',
           description: 'Acceso completo al sistema',
-          permissions: ['dashboard', 'lotteries', 'bets', 'winners', 'history', 'users', 'roles', 'taquillas'],
+          permissions: ['dashboard', 'reports', 'lotteries', 'bets', 'winners', 'history', 'users', 'roles', 'api-keys', 'taquillas', 'agencias', 'comercializadoras'],
+          createdAt: new Date().toISOString(),
+          isSystem: true,
+        },
+        {
+          id: 'comercializadora',
+          name: 'Comercializadora',
+          description: 'Gestiona agencias y supervisa taquillas',
+          permissions: ['agencias', 'agencias.read', 'agencias.create', 'taquillas.read'],
+          createdAt: new Date().toISOString(),
+          isSystem: true,
+        },
+        {
+          id: 'agencia',
+          name: 'Agencia',
+          description: 'Gestiona taquillas bajo su control',
+          permissions: ['taquillas', 'taquillas.read', 'taquillas.create'],
           createdAt: new Date().toISOString(),
           isSystem: true,
         }
@@ -239,11 +271,11 @@ export function useSupabaseRoles() {
         current.map(role =>
           role.id === roleId
             ? {
-                ...role,
-                name: updatedRole.name,
-                description: updatedRole.description,
-                permissions: updatedRole.permissions,
-              }
+              ...role,
+              name: updatedRole.name,
+              description: updatedRole.description,
+              permissions: updatedRole.permissions,
+            }
             : role
         )
       )
@@ -260,7 +292,7 @@ export function useSupabaseRoles() {
   // Eliminar rol
   const deleteRole = async (roleId: string): Promise<boolean> => {
     const role = roles.find(r => r.id === roleId)
-    
+
     if (role?.isSystem) {
       toast.error('No se pueden eliminar roles del sistema')
       return false

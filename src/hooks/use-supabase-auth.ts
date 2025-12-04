@@ -14,6 +14,8 @@ export interface SupabaseUser {
     is_system: boolean
   }>
   all_permissions: string[]
+  comercializadoraId?: string
+  agenciaId?: string
 }
 
 export function useSupabaseAuth() {
@@ -54,10 +56,10 @@ export function useSupabaseAuth() {
 
   const loadUserData = async (userId: string) => {
     console.log('Loading user data for:', userId)
-    
+
     try {
       setIsLoading(true)
-      
+
       if (isSupabaseConfigured()) {
         try {
           const { data: userData, error } = await supabase
@@ -95,6 +97,67 @@ export function useSupabaseAuth() {
               roles: roles,
               all_permissions: [...new Set(allPermissions)] // Eliminar duplicados
             }
+
+            // Buscar vinculación con Comercializadora
+            try {
+              const { data: com } = await supabase
+                .from('comercializadoras')
+                .select('id')
+                .eq('user_id', userId)
+                .maybeSingle()
+
+              if (com) {
+                user.comercializadoraId = com.id
+                console.log('Usuario vinculado a Comercializadora:', com.id)
+              }
+            } catch (e) {
+              console.warn('Error checking comercializadora link:', e)
+            }
+
+            // Fallback local para Comercializadora
+            if (!user.comercializadoraId) {
+              try {
+                const localComs = JSON.parse(localStorage.getItem('comercializadoras_backup') || '[]')
+                const myCom = localComs.find((c: any) => c.userId === userId)
+                if (myCom) {
+                  user.comercializadoraId = myCom.id
+                  console.log('Usuario vinculado a Comercializadora (Local):', myCom.id)
+                }
+              } catch (e) {
+                console.warn('Error checking local comercializadora link:', e)
+              }
+            }
+
+            // Buscar vinculación con Agencia
+            try {
+              const { data: ag } = await supabase
+                .from('agencias')
+                .select('id')
+                .eq('user_id', userId)
+                .maybeSingle()
+
+              if (ag) {
+                user.agenciaId = ag.id
+                console.log('Usuario vinculado a Agencia:', ag.id)
+              }
+            } catch (e) {
+              console.warn('Error checking agencia link:', e)
+            }
+
+            // Fallback local para Agencia
+            if (!user.agenciaId) {
+              try {
+                const localAgencies = JSON.parse(localStorage.getItem('taquilla-agencies') || '[]')
+                const myAgency = localAgencies.find((a: any) => a.userId === userId)
+                if (myAgency) {
+                  user.agenciaId = myAgency.id
+                  console.log('Usuario vinculado a Agencia (Local):', myAgency.id)
+                }
+              } catch (e) {
+                console.warn('Error checking local agencia link:', e)
+              }
+            }
+
             console.log('Usuario cargado desde Supabase:', user.email, 'Permisos:', user.all_permissions)
             setCurrentUser(user)
             setIsLoading(false)
@@ -104,10 +167,10 @@ export function useSupabaseAuth() {
           console.log('Error cargando usuario de Supabase:', supabaseError)
         }
       }
-      
+
       // Si llegamos aquí, no se pudo cargar el usuario
       setCurrentUser(null)
-      
+
     } catch (error) {
       console.error('Error in loadUserData:', error)
       setCurrentUser(null)

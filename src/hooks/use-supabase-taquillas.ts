@@ -1,13 +1,14 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import type { Taquilla } from '@/lib/types'
+import type { SupabaseUser } from './use-supabase-auth'
 
 // Hash simple compatible con verifyPassword del auth hook
 function simpleHash(password: string): string {
   return `hashed_${password}_${Date.now()}`
 }
 
-export function useSupabaseTaquillas() {
+export function useSupabaseTaquillas(currentUser?: SupabaseUser | null) {
   const [taquillas, setTaquillas] = useState<Taquilla[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
@@ -31,33 +32,76 @@ export function useSupabaseTaquillas() {
   const loadTaquillas = useCallback(async (): Promise<Taquilla[]> => {
     setIsLoading(true)
     try {
+      const isAdmin = currentUser?.all_permissions.includes('*') ||
+        (currentUser?.all_permissions.includes('taquillas') && !currentUser?.comercializadoraId && !currentUser?.agenciaId)
+
       if (!(await testConnection())) {
-        const local = JSON.parse(localStorage.getItem('taquillas_backup') || '[]')
+        let local = JSON.parse(localStorage.getItem('taquillas_backup') || '[]')
+
+        // Filtrado local
+        if (currentUser && !isAdmin) {
+          if (currentUser.agenciaId) {
+            local = local.filter((t: Taquilla) => t.agencyId === currentUser.agenciaId)
+          } else if (currentUser.comercializadoraId) {
+            // Necesitamos saber qué agencias son de esta comercializadora
+            const localAgencies = JSON.parse(localStorage.getItem('taquilla-agencies') || '[]')
+            const myAgencyIds = localAgencies
+              .filter((a: any) => a.commercializerId === currentUser.comercializadoraId)
+              .map((a: any) => a.id)
+
+            local = local.filter((t: Taquilla) => t.agencyId && myAgencyIds.includes(t.agencyId))
+          } else {
+            // Sin permisos ni vinculación
+            local = []
+          }
+        }
+
         setTaquillas(local)
         return local
       }
-      const { data, error } = await supabase
+
+      let query = supabase
         .from('taquillas')
-        .select('*')
+        .select('*, agencias(commercializer_id)')
         .order('created_at', { ascending: false })
+
+      // Filtrado remoto
+      if (currentUser && !isAdmin) {
+        if (currentUser.agenciaId) {
+          query = query.eq('agency_id', currentUser.agenciaId)
+        }
+        // Para comercializadora, el filtrado ideal sería con !inner join, pero si falla la relación FK,
+        // filtraremos en memoria después de recibir los datos.
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
 
-      const mapped: Taquilla[] = (data || []).map((t: any) => ({
+      let mapped: Taquilla[] = (data || []).map((t: any) => ({
         id: t.id,
         fullName: t.full_name,
         address: t.address,
-        telefono: t.telefono || t.phone, // Soporte para ambos nombres por si acaso
+        telefono: t.telefono || t.phone,
         email: t.email,
         username: t.username || undefined,
-        isApproved: !!t.is_active, // Mapeamos is_active a isApproved
+        isApproved: !!t.is_active,
         approvedBy: t.activated_by || t.approved_by || undefined,
         approvedAt: t.activated_at || t.approved_at || undefined,
+        agencyId: t.agency_id || undefined,
+        commercializerId: t.agencias?.commercializer_id || undefined, // Mapear si viene del join
         createdAt: t.created_at,
       }))
 
+      // Filtrado en memoria para comercializadora (si no se pudo filtrar en query)
+      if (currentUser && !isAdmin && currentUser.comercializadoraId) {
+        mapped = mapped.filter(t => t.commercializerId === currentUser.comercializadoraId)
+      }
+
       setTaquillas(mapped)
-      localStorage.setItem('taquillas_backup', JSON.stringify(mapped))
+      if (isAdmin) {
+        localStorage.setItem('taquillas_backup', JSON.stringify(mapped))
+      }
       return mapped
     } catch (e) {
       const local = JSON.parse(localStorage.getItem('taquillas_backup') || '[]')
@@ -66,13 +110,30 @@ export function useSupabaseTaquillas() {
     } finally {
       setIsLoading(false)
     }
-  }, [testConnection])
+  }, [testConnection, currentUser])
 
-  const createTaquilla = useCallback(async (input: Pick<Taquilla, 'fullName' | 'address' | 'telefono' | 'email' | 'password' | 'username'>): Promise<boolean> => {
+  const createTaquilla = useCallback(async (input: Pick<Taquilla, 'fullName' | 'address' | 'telefono' | 'email' | 'password' | 'username' | 'agencyId'>): Promise<boolean> => {
     try {
       const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `taq_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
       const now = new Date().toISOString()
       const passwordHash = input.password ? simpleHash(input.password) : undefined
+
+      let remoteOk = false
+      if (await testConnection()) {
+        const { error } = await supabase.from('taquillas').insert([{
+          id,
+          full_name: input.fullName,
+          address: input.address,
+          telefono: input.telefono,
+          email: input.email,
+          username: input.username,
+          password_hash: passwordHash,
+          agency_id: input.agencyId,
+          is_approved: false
+        }])
+        if (!error) remoteOk = true
+      }
+
       const newTaquilla: Taquilla = {
         id,
         fullName: input.fullName,
@@ -81,21 +142,22 @@ export function useSupabaseTaquillas() {
         email: input.email,
         username: input.username,
         passwordHash,
+        agencyId: input.agencyId,
         isApproved: false,
         createdAt: now,
       }
 
-      // Solo guardar en localStorage, no conectar con Supabase
       const updated = [newTaquilla, ...taquillas]
       setTaquillas(updated)
       localStorage.setItem('taquillas_backup', JSON.stringify(updated))
+      if (remoteOk) await loadTaquillas()
       return true
     } catch (e) {
       return false
     }
-  }, [taquillas])
+  }, [taquillas, testConnection, loadTaquillas])
 
-  const updateTaquilla = useCallback(async (id: string, updates: Partial<Pick<Taquilla, 'fullName' | 'address' | 'telefono' | 'email' | 'password'>>): Promise<boolean> => {
+  const updateTaquilla = useCallback(async (id: string, updates: Partial<Pick<Taquilla, 'fullName' | 'address' | 'telefono' | 'email' | 'password' | 'agencyId'>>): Promise<boolean> => {
     try {
       let remoteOk = false
       let passwordHash: string | undefined
@@ -110,6 +172,8 @@ export function useSupabaseTaquillas() {
         if (updates.telefono !== undefined) supUpdates.telefono = updates.telefono
         if (updates.email !== undefined) supUpdates.email = updates.email
         if (passwordHash !== undefined) supUpdates.password_hash = passwordHash
+        if (updates.agencyId !== undefined) supUpdates.agency_id = updates.agencyId
+
         const { error } = await supabase.from('taquillas').update(supUpdates).eq('id', id)
         if (!error) remoteOk = true
       }
@@ -121,6 +185,7 @@ export function useSupabaseTaquillas() {
         telefono: updates.telefono ?? t.telefono,
         email: updates.email ?? t.email,
         passwordHash: passwordHash ?? t.passwordHash,
+        agencyId: updates.agencyId ?? t.agencyId,
       } : t)
       setTaquillas(updated)
       localStorage.setItem('taquillas_backup', JSON.stringify(updated))

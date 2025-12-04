@@ -17,12 +17,15 @@ interface RoleDialogProps {
 
 const AVAILABLE_MODULES: { value: ModulePermission; label: string; description: string }[] = [
   { value: "dashboard", label: "Dashboard", description: "Ver balance de potes y estadísticas" },
+  { value: "reports", label: "Reportes", description: "Ver reportes y análisis" },
   { value: "lotteries", label: "Sorteos", description: "Crear y gestionar sorteos" },
   { value: "winners", label: "Ganadores", description: "Realizar sorteos y ver ganadores" },
   { value: "history", label: "Historial", description: "Ver transferencias y retiros" },
   { value: "users", label: "Usuarios", description: "Gestionar usuarios del sistema" },
   { value: "roles", label: "Roles", description: "Crear y editar roles" },
+  { value: "api-keys", label: "API Keys", description: "Gestionar claves de API" },
   { value: "taquillas", label: "Taquillas", description: "Registrar, ver y aprobar taquillas" },
+  { value: "agencias", label: "Agencias", description: "Gestionar agencias y comercializadores" },
 ]
 
 export function RoleDialog({ open, onOpenChange, role, onSave }: RoleDialogProps) {
@@ -62,7 +65,7 @@ export function RoleDialog({ open, onOpenChange, role, onSave }: RoleDialogProps
       }
 
       const success = await onSave(roleData)
-      
+
       if (success) {
         onOpenChange(false)
         // Resetear formulario
