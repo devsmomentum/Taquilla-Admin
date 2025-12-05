@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Pencil, Trash, MagnifyingGlass, CheckCircle, XCircle, Star } from "@phosphor-icons/react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Plus, Pencil, Trash, MagnifyingGlass, CheckCircle, XCircle, Star, Warning } from "@phosphor-icons/react"
 import { Comercializadora, User } from "@/lib/types"
 import { ComercializadoraDialog } from "./ComercializadoraDialog"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
+import { toast } from "sonner"
 
 interface ComercializadorasTabProps {
     comercializadoras: Comercializadora[]
@@ -34,6 +36,9 @@ export function ComercializadorasTab({
     const [dialogOpen, setDialogOpen] = useState(false)
     const [editingComercializadora, setEditingComercializadora] = useState<Comercializadora | undefined>()
     const [search, setSearch] = useState('')
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+    const [comercializadoraToDelete, setComercializadoraToDelete] = useState<Comercializadora | null>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
 
     const filteredComercializadoras = comercializadoras.filter(c =>
         search === '' ||
@@ -61,6 +66,31 @@ export function ComercializadorasTab({
 
     const handleSetDefault = async (id: string) => {
         await onSetDefault(id)
+    }
+
+    const handleDeleteClick = (comercializadora: Comercializadora) => {
+        if (comercializadora.isDefault) {
+            toast.error("No se puede eliminar la comercializadora predeterminada")
+            return
+        }
+        setComercializadoraToDelete(comercializadora)
+        setDeleteDialogOpen(true)
+    }
+
+    const confirmDelete = async () => {
+        if (!comercializadoraToDelete) return
+
+        setIsDeleting(true)
+        try {
+            await onDelete(comercializadoraToDelete.id)
+            toast.success("Comercializadora eliminada exitosamente")
+            setDeleteDialogOpen(false)
+            setComercializadoraToDelete(null)
+        } catch (error) {
+            toast.error("Error al eliminar comercializadora")
+        } finally {
+            setIsDeleting(false)
+        }
     }
 
     return (
@@ -217,7 +247,8 @@ export function ComercializadorasTab({
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            onClick={() => onDelete(comercializadora.id)}
+                                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                            onClick={() => handleDeleteClick(comercializadora)}
                                                             disabled={comercializadora.isDefault}
                                                             title={comercializadora.isDefault ? 'No se puede eliminar la predeterminada' : 'Eliminar'}
                                                         >
@@ -243,6 +274,60 @@ export function ComercializadorasTab({
                 currentUserId={currentUserId}
                 createUser={createUser}
             />
+
+            {/* Diálogo de confirmación para eliminar */}
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+                                <Warning className="h-6 w-6 text-destructive" weight="fill" />
+                            </div>
+                            <div>
+                                <DialogTitle>Eliminar Comercializadora</DialogTitle>
+                                <DialogDescription>
+                                    Esta acción no se puede deshacer
+                                </DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <p className="text-sm text-muted-foreground">
+                            ¿Está seguro que desea eliminar la comercializadora <span className="font-semibold text-foreground">"{comercializadoraToDelete?.name}"</span>?
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-2">
+                            Todas las agencias asociadas a esta comercializadora quedarán sin asignar.
+                        </p>
+                    </div>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button
+                            variant="outline"
+                            onClick={() => setDeleteDialogOpen(false)}
+                            disabled={isDeleting}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={confirmDelete}
+                            disabled={isDeleting}
+                        >
+                            {isDeleting ? (
+                                <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                    Eliminando...
+                                </>
+                            ) : (
+                                <>
+                                    <Trash className="mr-2 h-4 w-4" />
+                                    Eliminar
+                                </>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
+

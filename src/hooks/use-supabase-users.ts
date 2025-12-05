@@ -94,7 +94,14 @@ export function useSupabaseUsers() {
           email,
           is_active,
           created_at,
-          created_by
+          created_by,
+          user_type,
+          address,
+          share_on_sales,
+          share_on_profits,
+          comercializadora_id,
+          agencia_id,
+          parent_id
         `)
         .order('created_at', { ascending: true })
 
@@ -115,10 +122,18 @@ export function useSupabaseUsers() {
             id: user.id,
             name: user.name,
             email: user.email,
+            userType: user.user_type,
+            address: user.address,
+            shareOnSales: parseFloat(user.share_on_sales) || 0,
+            shareOnProfits: parseFloat(user.share_on_profits) || 0,
             roleIds: roleIds,
             isActive: user.is_active,
             createdAt: user.created_at,
             createdBy: user.created_by || 'system',
+            // Campos para RLS jerárquico
+            comercializadoraId: user.comercializadora_id,
+            agenciaId: user.agencia_id,
+            parentId: user.parent_id
           }
         })
       )
@@ -126,7 +141,7 @@ export function useSupabaseUsers() {
       console.log(`☁️ Cargados ${usersWithRoles.length} usuarios desde Supabase con sus roles`)
 
       // Combinar usuarios de Supabase con locales (prioridad a Supabase)
-      const combinedUsers = [...usersWithRoles]
+      const combinedUsers: User[] = [...usersWithRoles]
       localUsers.forEach(localUser => {
         if (!combinedUsers.find(u => u.id === localUser.id || u.email === localUser.email)) {
           combinedUsers.push(localUser)
@@ -163,7 +178,6 @@ export function useSupabaseUsers() {
     }
   }, [])
 
-  // Crear nuevo usuario (Supabase + Local)
   const createUser = async (userData: Omit<User, 'id' | 'createdAt'>): Promise<boolean> => {
     // 1. Verificar si el email ya existe localmente
     const existingLocalUser = users.find(u => u.email === userData.email)
@@ -178,6 +192,7 @@ export function useSupabaseUsers() {
       id: newUserId,
       name: userData.name,
       email: userData.email,
+      userType: userData.userType || 'admin',
       roleIds: userData.roleIds || [],
       isActive: userData.isActive,
       createdAt: new Date().toISOString(),
@@ -186,133 +201,80 @@ export function useSupabaseUsers() {
 
     let supabaseSuccess = false
 
-    // 2. Intentar crear en Supabase primero (con validación robusta)
+    // 2. Intentar crear en Supabase usando Edge Function
     if (isSupabaseConfigured()) {
       try {
-        console.log(`🔍 Verificando email ${userData.email} en Supabase...`)
+        console.log(`📝 Creando usuario ${userData.email} con Edge Function...`)
 
-        // Verificación más robusta de duplicados
-        const { data: existingUsers, error: checkError } = await supabase
-          .from('users')
-          .select('id, email, name')
-          .eq('email', userData.email)
-          .limit(1)
+        // Obtener sesión para auth
+        const { data: session } = await supabase.auth.getSession()
 
-        if (checkError) {
-          console.error('Error en verificación de duplicados:', checkError)
-          throw checkError
-        }
-
-        if (existingUsers && existingUsers.length > 0) {
-          const existingUser = existingUsers[0]
-          console.log(`❌ Email ${userData.email} ya existe en Supabase (ID: ${existingUser.id})`)
-          toast.error(`Este email ya está registrado en Supabase por: ${existingUser.name}`)
+        if (!session?.session) {
+          toast.error('Debes estar autenticado para crear usuarios')
           return false
         }
 
-        console.log(`✅ Email ${userData.email} disponible en Supabase`)
+        const password = userData.password || '123456' // Contraseña por defecto
 
-        const password = userData.password || '123456' // Contraseña por defecto si no se provee
-
-        console.log(`📝 Creando usuario usando método híbrido (SignUp + RPC)...`)
-
-        // 1. Crear cliente temporal para no afectar la sesión actual
-        // Usamos createClient directamente de supabase-js
-        const { createClient } = await import('@supabase/supabase-js')
-        const tempClient = createClient(
-          import.meta.env.VITE_SUPABASE_URL,
-          import.meta.env.VITE_SUPABASE_ANON_KEY,
-          { auth: { persistSession: false } } // Importante: no guardar sesión
+        // Llamar a Edge Function
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.session.access_token}`,
+            },
+            body: JSON.stringify({
+              name: userData.name,
+              email: userData.email,
+              password: password,
+              roleIds: userData.roleIds,
+              userType: userData.userType || 'admin',
+              isActive: userData.isActive ?? true,
+              address: userData.address || null,
+              shareOnSales: userData.shareOnSales || 0,
+              shareOnProfits: userData.shareOnProfits || 0,
+              agenciaId: userData.agenciaId || null,
+              comercializadoraId: userData.comercializadoraId || null,  // Para RLS jerárquico
+              parentId: userData.createdBy || null  // ID del usuario padre para RLS
+            })
+          }
         )
 
-        // 2. Crear usuario en Auth usando signUp (Supabase maneja la encriptación y estructura)
-        const { data: authData, error: signUpError } = await tempClient.auth.signUp({
-          email: userData.email,
-          password: password,
-          options: {
-            data: { name: userData.name }
-          }
-        })
+        const result = await response.json()
 
-        if (signUpError) {
-          console.error('Error en signUp:', signUpError)
-          throw signUpError
+        if (!response.ok) {
+          console.error('Error de Edge Function:', result)
+          throw new Error(result.error || 'Error al crear usuario')
         }
 
-        if (!authData.user) {
-          throw new Error('No se pudo crear el usuario en Auth')
-        }
-
-        const newUserId = authData.user.id
-        console.log('✅ Usuario creado en Auth:', newUserId)
-
-        // 3. Confirmar email y sincronizar con public.users usando RPC
-        // Esto evita el problema de "Email not confirmed" y asegura que esté en public.users
-        const { error: rpcError } = await supabase.rpc('confirm_user_and_sync', {
-          user_email: userData.email,
-          user_name: userData.name,
-          user_password_hash: `hashed_by_supabase_${Date.now()}`, // Referencia
-          is_active: userData.isActive
-        })
-
-        if (rpcError) {
-          console.error('Error confirmando usuario:', rpcError)
-          // Si falla la confirmación, intentamos al menos insertar en public.users manualmente
-          // pero es probable que el login falle si no se confirmó.
-          throw rpcError
-        }
-
-        // Asignar roles si se proporcionaron
-        if (userData.roleIds && userData.roleIds.length > 0) {
-          const userRoles = userData.roleIds.map(roleId => ({
-            user_id: newUserId,
-            role_id: roleId
-          }))
-
-          const { error: rolesError } = await supabase
-            .from('user_roles')
-            .insert(userRoles)
-
-          if (rolesError) {
-            console.error('Error asignando roles:', rolesError)
-          }
-        }
-
-        // Usar el ID de Supabase
-        newUser.id = newUserId
-        // newUser.createdAt = ... (ya se creó)
+        // Usuario creado exitosamente
+        newUser.id = result.userId
         supabaseSuccess = true
-
-        console.log('✅ Usuario creado y confirmado exitosamente:', newUser.email)
+        console.log('✅ Usuario creado completamente:', result)
+        toast.success('Usuario creado en Authentication y base de datos')
 
       } catch (error: any) {
-        console.error('❌ Error creating user in Supabase:', error)
+        console.error('❌ Error creando usuario:', error)
 
-        // Manejo específico de errores de duplicate key
-        if (error.message.includes('duplicate key') ||
-          error.message.includes('unique constraint') ||
-          error.message.includes('users_email_key')) {
-          console.log(`🚫 Duplicate email detected: ${userData.email}`)
-          toast.error(`El email ${userData.email} ya está registrado en Supabase`)
+        // Manejo de errores específicos
+        if (error.message.includes('ya está registrado')) {
+          toast.error(`El email ${userData.email} ya está registrado`)
           return false
         }
 
-        // Otros errores de Supabase - NO continuar con localStorage
-        console.log(`⚠️ Supabase error: ${error.message}`)
-        toast.error(`Error en Supabase: ${error.message}. No se creó el usuario.`)
+        toast.error(`Error: ${error.message}`)
         return false
       }
     }
 
-    // 3. Guardar localmente (Solo si Supabase fue exitoso o no está configurado)
+    // 3. Guardar localmente
     const updatedUsers = [...users, newUser]
     setUsers(updatedUsers)
     saveLocalUsers(updatedUsers)
 
-    // Mostrar mensaje apropiado
-    if (supabaseSuccess) {
-      toast.success('Usuario creado exitosamente en Supabase y localmente')
-    } else {
+    if (!isSupabaseConfigured()) {
       toast.success('Usuario creado localmente (Supabase no configurado)')
     }
 
@@ -437,57 +399,71 @@ export function useSupabaseUsers() {
     return true
   }
 
-  // Eliminar usuario (Supabase + Local)
+  // Eliminar usuario (Auth + Public usando Edge Function)
   const deleteUser = async (userId: string): Promise<boolean> => {
-    // Intentar eliminar de Supabase primero
     if (isSupabaseConfigured()) {
       try {
-        // Intentar usar la función RPC segura primero (borra de Auth y Public)
-        const { error: rpcError } = await supabase.rpc('delete_user_completely', {
-          target_user_id: userId
-        })
+        console.log('🗑️ Eliminando usuario completamente:', userId)
 
-        if (rpcError) {
-          console.warn('RPC delete_user_completely falló, intentando método tradicional:', rpcError.message)
+        // Llamar a Edge Function que elimina de Auth + Public
+        const { data: session } = await supabase.auth.getSession()
 
-          // Fallback: Método tradicional (solo borra de public.users)
+        if (!session?.session) {
+          toast.error('Debes estar autenticado para eliminar usuarios')
+          return false
+        }
 
-          // Limpiar dependencias manualmente para evitar errores de FK
-          console.log('🧹 Limpiando dependencias del usuario...')
-          await supabase.from('bets').delete().eq('user_id', userId)
-          await supabase.from('taquilla_sales').delete().eq('created_by', userId)
-          await supabase.from('api_keys').delete().eq('created_by', userId)
-          await supabase.from('taquillas').update({ activated_by: null }).eq('activated_by', userId)
-          await supabase.from('transfers').update({ created_by: null }).eq('created_by', userId)
-          await supabase.from('withdrawals').update({ created_by: null }).eq('created_by', userId)
-
-          // Eliminar relaciones de roles
-          await supabase.from('user_roles').delete().eq('user_id', userId)
-
-          // Eliminar usuario de public
-          const { error } = await supabase.from('users').delete().eq('id', userId)
-
-          if (error) {
-            if (error.message.includes('row-level security policy')) {
-              toast.error('No se puede eliminar el usuario debido a políticas de seguridad')
-              return false
-            }
-            throw error
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.session.access_token}`,
+            },
+            body: JSON.stringify({ userId })
           }
+        )
 
-          toast.warning('Usuario eliminado de la lista, pero permanece en Auth (requiere limpieza manual)')
+        const result = await response.json()
+
+        if (!response.ok) {
+          console.error('Error de Edge Function:', result)
+
+          // Fallback: Intentar método RPC tradicional
+          console.warn('Edge Function falló, intentando RPC fallback...')
+          const { error: rpcError } = await supabase.rpc('delete_user_completely', {
+            target_user_id: userId
+          })
+
+          if (rpcError) {
+            console.warn('RPC también falló:', rpcError.message)
+
+            // Último recurso: solo borrar de public
+            await supabase.from('user_roles').delete().eq('user_id', userId)
+            const { error: deleteError } = await supabase.from('users').delete().eq('id', userId)
+
+            if (deleteError) {
+              throw deleteError
+            }
+
+            toast.warning('Usuario eliminado de la base de datos, pero permanece en Auth (elimina manualmente desde Dashboard)')
+          } else {
+            toast.success('Usuario eliminado completamente')
+          }
         } else {
-          console.log('✅ Usuario eliminado completamente (Auth + Public)')
-          toast.success('Usuario eliminado del sistema permanentemente')
+          console.log('✅ Usuario eliminado completamente:', result)
+          toast.success('Usuario eliminado de Auth y base de datos')
         }
 
       } catch (error: any) {
-        console.error('Error deleting user from Supabase:', error)
-        toast.error(`Error en Supabase: ${error.message}. Eliminando solo localmente.`)
+        console.error('Error eliminando usuario:', error)
+        toast.error(`Error: ${error.message}`)
+        return false
       }
     }
 
-    // Eliminar localmente (siempre)
+    // Eliminar localmente
     const updatedUsers = users.filter(user => user.id !== userId)
     setUsers(updatedUsers)
     saveLocalUsers(updatedUsers)

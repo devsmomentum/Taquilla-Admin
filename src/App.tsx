@@ -34,9 +34,8 @@ import { useSupabasePots } from "@/hooks/use-supabase-pots"
 import { useSupabaseWithdrawals } from "@/hooks/use-supabase-withdrawals"
 import { useSupabaseApiKeys } from "@/hooks/use-supabase-apikeys"
 import { useSupabaseTaquillas } from "@/hooks/use-supabase-taquillas"
-import { useLocalAgencies } from "@/hooks/use-local-agencies"
+// Las agencias ahora son usuarios con userType='agencia', no una tabla separada
 import { useAutoPlayTomorrow } from "@/hooks/use-auto-play-tomorrow"
-import { useSupabaseComercializadoras } from "@/hooks/use-supabase-comercializadoras"
 import { AgenciesTab } from "@/components/AgenciesTab"
 import { ComercializadorasTab } from "@/components/ComercializadorasTab"
 import { toast } from "sonner"
@@ -59,6 +58,54 @@ function App() {
   // Ya no usamos useKV para draws, ahora usamos useSupabaseDraws
 
   const { currentUser, currentUserId, isLoading, login, logout, hasPermission } = useSupabaseAuth()
+
+  // DEBUG: Ver currentUser
+  useEffect(() => {
+    if (currentUser) {
+      console.log('👤 CurrentUser en App:', currentUser)
+    }
+  }, [currentUser])
+
+  // Helper para determinar si el usuario puede ver un módulo (userType + permisos)
+  const canViewModule = (module: string): boolean => {
+    if (!currentUser) {
+      console.log('❌ canViewModule: No currentUser')
+      return false
+    }
+
+    console.log('🔍 canViewModule:', { module, userType: currentUser.userType, email: currentUser.email })
+
+    // Para Admins: usar el sistema de permisos
+    if (currentUser.userType === 'admin' || !currentUser.userType) {
+      const hasPermissionResult = hasPermission(module)
+      console.log(`👤 Admin checking permission for ${module}:`, hasPermissionResult)
+      return hasPermissionResult
+    }
+
+    // Para Comercializadores: solo pueden ver Agencias
+    if (currentUser.userType === 'comercializadora') {
+      const canView = module === 'agencias'
+      console.log(`🏢 Comercializadora checking ${module}:`, canView)
+      return canView
+    }
+
+    // Para Agencias: SOLO pueden ver Taquillas
+    if (currentUser.userType === 'agencia') {
+      const canView = ['taquillas'].includes(module)
+      console.log(`🏪 Agencia checking ${module}:`, canView)
+      return canView
+    }
+
+    // Para Taquillas: solo ven su propio módulo
+    if (currentUser.userType === 'taquilla') {
+      const canView = ['taquillas'].includes(module)
+      console.log(`🎫 Taquilla checking ${module}:`, canView)
+      return canView
+    }
+
+    console.log('❌ No userType match, denying access')
+    return false
+  }
 
   const {
     pots,
@@ -89,15 +136,16 @@ function App() {
     testConnection: testApiKeysConnection
   } = useSupabaseApiKeys()
 
-  // Hook de Taquillas
+  // Hook de Taquillas - Ahora las taquillas son usuarios con userType='taquilla'
+  // El hook original se mantiene temporalmente para compatibilidad
   const {
-    taquillas,
+    taquillas: oldTaquillas,
     isLoading: taquillasLoading,
-    createTaquilla,
+    createTaquilla: oldCreateTaquilla,
     approveTaquilla,
-    updateTaquilla,
+    updateTaquilla: oldUpdateTaquilla,
     toggleTaquillaStatus,
-    deleteTaquilla
+    deleteTaquilla: oldDeleteTaquilla
   } = useSupabaseTaquillas(currentUser)
 
   const {
@@ -106,23 +154,10 @@ function App() {
     deleteSale: deleteTaquillaSale
   } = useSupabaseTaquillaSales()
 
-  const {
-    agencies,
-    isLoading: agenciesLoading,
-    createAgency,
-    updateAgency,
-    deleteAgency
-  } = useLocalAgencies(currentUser)
+  // La definición de agencies está más abajo, después de useSupabaseUsers
 
-  // Hook de Comercializadoras
-  const {
-    comercializadoras,
-    isLoading: comercializadorasLoading,
-    createComercializadora,
-    updateComercializadora,
-    deleteComercializadora,
-    setDefaultComercializadora
-  } = useSupabaseComercializadoras(currentUser)
+  // Comercializadoras definitions will be derived from supabaseUsers below
+
 
   const [users, setUsers] = useKV<User[]>("users", [])
   // API Keys ahora se manejan completamente por el hook useSupabaseApiKeys
@@ -146,6 +181,145 @@ function App() {
     syncUsersToSupabase,
     cleanDuplicateUsers
   } = useSupabaseUsers()
+
+  // Convertir usuarios tipo 'agencia' al formato Agency
+  const agencies = (supabaseUsers || []).filter(u => u.userType === 'agencia').map(user => ({
+    id: user.id,
+    name: user.name,
+    address: user.address || '',
+    logo: undefined,
+    commercializerId: '',
+    shareOnSales: user.shareOnSales || 0,
+    shareOnProfits: user.shareOnProfits || 0,
+    currentBalance: 0,
+    isActive: user.isActive,
+    createdAt: user.createdAt
+  }))
+  const agenciesLoading = usersLoading
+
+  // Convertir usuarios tipo 'taquilla' al formato Taquilla
+  const taquillas = (supabaseUsers || []).filter(u => u.userType === 'taquilla').map(user => ({
+    id: user.id,
+    fullName: user.name,
+    address: user.address || '',
+    telefono: '',
+    email: user.email,
+    username: user.email.split('@')[0],
+    isApproved: user.isActive,
+    agencyId: user.agenciaId,
+    createdAt: user.createdAt,
+    shareOnSales: user.shareOnSales || 0,
+    shareOnProfits: user.shareOnProfits || 0
+  }))
+
+  // Convertir usuarios tipo 'comercializadora' al formato Comercializadora
+  const comercializadoras = (supabaseUsers || [])
+    .filter(u => u.userType === 'comercializadora')
+    .map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      address: user.address,
+      logo: undefined,
+      userId: user.id,
+      shareOnSales: user.shareOnSales || 0,
+      shareOnProfits: user.shareOnProfits || 0,
+      isDefault: false, // Default not yet supported in users table
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      createdBy: user.createdBy,
+    }))
+  const comercializadorasLoading = usersLoading
+
+  // Funciones CRUD para Comercializadoras (wrappers de Users)
+  const createComercializadora = async (input: any) => {
+    return await createUser({
+      name: input.name,
+      email: input.email,
+      password: 'temp-password', // Should be handled better
+      userType: 'comercializadora',
+      isActive: input.isActive,
+      roleIds: [],
+      createdBy: currentUser?.id || 'system',
+      address: input.address,
+      shareOnSales: input.shareOnSales,
+      shareOnProfits: input.shareOnProfits
+    })
+  }
+
+  const updateComercializadora = async (id: string, updates: any) => {
+    return await updateUser(id, {
+      name: updates.name,
+      email: updates.email,
+      address: updates.address,
+      shareOnSales: updates.shareOnSales,
+      shareOnProfits: updates.shareOnProfits,
+      isActive: updates.isActive
+    })
+  }
+
+  const deleteComercializadora = async (id: string) => {
+    return await deleteUser(id)
+  }
+
+  const setDefaultComercializadora = async (id: string) => {
+    // Not implemented for users table yet
+    console.warn('Set default comercializadora not implemented regarding users table')
+    return true
+  }
+
+  // Funciones para taquillas usando createUser/updateUser/deleteUser
+  const createTaquilla = async (input: any) => {
+    // Determinar comercializadoraId: del input, del currentUser o buscar de la agencia
+    let comercializadoraId = input.comercializadoraId
+
+    // Si no viene, intentar obtenerlo del usuario actual
+    if (!comercializadoraId && currentUser?.comercializadoraId) {
+      comercializadoraId = currentUser.comercializadoraId
+    }
+
+    // Si aún no lo tenemos y hay agenciaId, buscar la comercializadora de esa agencia
+    if (!comercializadoraId && input.agencyId) {
+      const agency = agencies.find(a => a.id === input.agencyId)
+      if (agency?.commercializerId) {
+        comercializadoraId = agency.commercializerId
+      }
+    }
+
+    console.log('🎫 Creando taquilla:', input.fullName)
+    console.log('📍 AgenciaId:', input.agencyId)
+    console.log('🏢 ComercializadoraId:', comercializadoraId)
+
+    const success = await createUser({
+      name: input.fullName,
+      email: input.email,
+      password: input.password || '123456',
+      userType: 'taquilla',
+      isActive: false, // Las taquillas empiezan inactivas hasta ser aprobadas
+      roleIds: [],
+      createdBy: currentUser?.id || 'system',
+      address: input.address || '',
+      shareOnSales: input.shareOnSales || 0,
+      shareOnProfits: input.shareOnProfits || 0,
+      agenciaId: input.agencyId,
+      // Para RLS jerárquico - MUY IMPORTANTE
+      comercializadoraId: comercializadoraId
+    })
+    return success
+  }
+
+  const updateTaquilla = async (id: string, updates: any) => {
+    return await updateUser(id, {
+      name: updates.fullName,
+      address: updates.address,
+      isActive: updates.isApproved
+    })
+  }
+
+  const deleteTaquilla = async (id: string) => {
+    return await deleteUser(id)
+  }
+
   const {
     lotteries: supabaseLotteries,
     isLoading: lotteriesLoading,
@@ -241,31 +415,31 @@ function App() {
 
     // Define tab priority order
     const tabs = [
-      { id: "dashboard", permission: "dashboard" },
-      { id: "reports", permission: "reports" },
-      { id: "lotteries", permission: "lotteries" },
-      { id: "draws", permission: "draws.read" },
-      { id: "winners", permission: "winners" },
-      { id: "history", permission: "history" },
-      { id: "users", permission: "users" },
-      { id: "roles", permission: "roles" },
-      { id: "api-keys", permission: "api-keys" },
-      { id: "taquillas", permission: "taquillas" },
-      { id: "agencias", permission: "agencias" },
-      { id: "comercializadoras", permission: "comercializadoras" },
+      { id: "dashboard", module: "dashboard" },
+      { id: "reports", module: "reports" },
+      { id: "lotteries", module: "lotteries" },
+      { id: "draws", module: "draws.read" },
+      { id: "winners", module: "winners" },
+      { id: "history", module: "history" },
+      { id: "users", module: "users" },
+      { id: "roles", module: "roles" },
+      { id: "api-keys", module: "api-keys" },
+      { id: "taquillas", module: "taquillas" },
+      { id: "agencias", module: "agencias" },
+      { id: "comercializadoras", module: "comercializadoras" },
     ]
 
-    // Find the first tab the user has permission for
-    const firstAllowedTab = tabs.find(tab => hasPermission(tab.permission))
+    // Find the first tab the user has permission for (usando canViewModule)
+    const firstAllowedTab = tabs.find(tab => canViewModule(tab.module))
 
     if (firstAllowedTab) {
       // Only change if current active tab is not allowed
-      const currentTabAllowed = tabs.find(t => t.id === activeTab && hasPermission(t.permission))
+      const currentTabAllowed = tabs.find(t => t.id === activeTab && canViewModule(t.module))
       if (!currentTabAllowed) {
         setActiveTab(firstAllowedTab.id)
       }
     }
-  }, [currentUser, hasPermission])
+  }, [currentUser])
 
   useEffect(() => {
     const currentUsers = supabaseUsers || []
@@ -691,6 +865,76 @@ function App() {
   // API Keys manejadas completamente por el hook
   const currentApiKeys = supabaseApiKeys || []
 
+  // 🔍 Filtrado por jerarquía de negocio
+  const getVisibleAgencies = () => {
+    if (!currentUser) return []
+
+    // Admin: ve todas
+    if (currentUser.userType === 'admin' || !currentUser.userType) {
+      return agencies
+    }
+
+    // Comercializadora: ve TODAS las agencias
+    if (currentUser.userType === 'comercializadora') {
+      return agencies
+    }
+
+    // Agencia: ve TODAS las agencias (igual que comercializadora)
+    if (currentUser.userType === 'agencia') {
+      return agencies
+    }
+
+    return []
+  }
+
+  const getVisibleTaquillas = () => {
+    if (!currentUser) return []
+
+    // Admin: ve todas
+    if (currentUser.userType === 'admin' || !currentUser.userType) {
+      return currentTaquillas
+    }
+
+    // Comercializadora: ve TODAS las taquillas
+    if (currentUser.userType === 'comercializadora') {
+      return currentTaquillas
+    }
+
+    // Agencia: ve TODAS las taquillas
+    if (currentUser.userType === 'agencia') {
+      return currentTaquillas
+    }
+
+    // Taquilla: ve solo su propia taquilla
+    if (currentUser.userType === 'taquilla' && currentUser.taquillaId) {
+      return currentTaquillas.filter(t => t.id === currentUser.taquillaId)
+    }
+
+    return []
+  }
+
+  // Usar versiones filtradas
+  const visibleAgencies = getVisibleAgencies()
+  const visibleTaquillas = getVisibleTaquillas()
+
+  // Calcular defaultAgencyId
+  const getDefaultAgencyId = () => {
+    if (currentUser?.agenciaId) return currentUser.agenciaId
+    if (visibleAgencies.length === 1) return visibleAgencies[0].id
+
+    // Buscar agencia que coincida con el email del usuario
+    if (currentUser?.email && visibleAgencies.length > 0) {
+      const emailPrefix = currentUser.email.split('@')[0].toLowerCase().replace('agencia', '')
+      const myAgency = visibleAgencies.find(a => {
+        const agencyName = a.name?.toLowerCase().replace(/\s+/g, '').replace('agencia', '') || ''
+        return agencyName === emailPrefix || agencyName.includes(emailPrefix) || emailPrefix.includes(agencyName)
+      })
+      if (myAgency) return myAgency.id
+    }
+    return undefined
+  }
+  const defaultAgencyId = getDefaultAgencyId()
+
   const winners = currentBets.filter((b) => b.isWinner)
   const activeBets = currentBets.filter((b) => !b.isWinner)
 
@@ -698,7 +942,7 @@ function App() {
   const filteredBets = filterBets(activeBets, betSearch, betFilters)
   const filteredUsers = filterUsers(currentUsers, userSearch, userFilters)
   const filteredRoles = filterRoles(currentRoles, roleSearch)
-  const filteredTaquillas = filterTaquillas(currentTaquillas, taquillaSearch, taquillaFilters)
+  const filteredTaquillas = filterTaquillas(visibleTaquillas, taquillaSearch, taquillaFilters)
   const filteredWinners = filterBets(winners, winnerSearch, winnerFilters)
   const filteredDraws = currentDraws.filter((draw) => {
     const matchesSearch =
@@ -773,80 +1017,80 @@ function App() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 md:space-y-6">
           <ScrollArea className="w-full">
             <TabsList className="inline-flex w-auto min-w-full h-auto flex-wrap gap-1 p-1">
-              {hasPermission("dashboard") && (
+              {canViewModule("dashboard") && (
                 <TabsTrigger value="dashboard" className="flex-shrink-0">
                   <Vault className="md:mr-2" />
                   <span className="hidden md:inline">Dashboard</span>
                 </TabsTrigger>
               )}
-              {hasPermission("reports") && (
+              {canViewModule("reports") && (
                 <TabsTrigger value="reports" className="flex-shrink-0">
                   <ChartLine className="md:mr-2" />
                   <span className="hidden md:inline">Reportes</span>
                 </TabsTrigger>
               )}
-              {hasPermission("lotteries") && (
+              {canViewModule("lotteries") && (
                 <TabsTrigger value="lotteries" className="flex-shrink-0">
                   <Calendar className="md:mr-2" />
                   <span className="hidden md:inline">Sorteos</span>
                 </TabsTrigger>
               )}
               {/* Jugadas - Temporalmente oculta */}
-              {/* {hasPermission("bets") && (
+              {/* {canViewModule("bets") && (
                 <TabsTrigger value="bets" className="flex-shrink-0">
                   <Ticket className="md:mr-2" />
                   <span className="hidden md:inline">Jugadas</span>
                 </TabsTrigger>
               )} */}
-              {hasPermission("draws.read") && (
+              {canViewModule("draws.read") && (
                 <TabsTrigger value="draws" className="flex-shrink-0">
                   <Target className="md:mr-2" />
                   <span className="hidden md:inline">Resultados</span>
                 </TabsTrigger>
               )}
-              {hasPermission("winners") && (
+              {canViewModule("winners") && (
                 <TabsTrigger value="winners" className="flex-shrink-0">
                   <Trophy className="md:mr-2" />
                   <span className="hidden md:inline">Ganadores</span>
                 </TabsTrigger>
               )}
-              {hasPermission("history") && (
+              {canViewModule("history") && (
                 <TabsTrigger value="history" className="flex-shrink-0">
                   <ListBullets className="md:mr-2" />
                   <span className="hidden md:inline">Historial</span>
                 </TabsTrigger>
               )}
-              {hasPermission("users") && (
+              {canViewModule("users") && (
                 <TabsTrigger value="users" className="flex-shrink-0">
                   <Users className="md:mr-2" />
                   <span className="hidden md:inline">Usuarios</span>
                 </TabsTrigger>
               )}
-              {hasPermission("roles") && (
+              {canViewModule("roles") && (
                 <TabsTrigger value="roles" className="flex-shrink-0">
                   <ShieldCheck className="md:mr-2" />
                   <span className="hidden md:inline">Roles</span>
                 </TabsTrigger>
               )}
-              {hasPermission("api-keys") && (
+              {canViewModule("api-keys") && (
                 <TabsTrigger value="api-keys" className="flex-shrink-0">
                   <Key className="md:mr-2" />
                   <span className="hidden md:inline">API Keys</span>
                 </TabsTrigger>
               )}
-              {(hasPermission("taquillas") || hasPermission("taquillas.read")) && (
+              {canViewModule("taquillas") && (
                 <TabsTrigger value="taquillas" className="flex-shrink-0">
                   <Storefront className="md:mr-2" />
                   <span className="hidden md:inline">Taquillas</span>
                 </TabsTrigger>
               )}
-              {(hasPermission("agencias") || hasPermission("agencias.read")) && (
+              {canViewModule("agencias") && (
                 <TabsTrigger value="agencias" className="flex-shrink-0">
                   <Buildings className="md:mr-2" />
                   <span className="hidden md:inline">Agencias</span>
                 </TabsTrigger>
               )}
-              {hasPermission("comercializadoras") && (
+              {canViewModule("comercializadoras") && (
                 <TabsTrigger value="comercializadoras" className="flex-shrink-0">
                   <Buildings className="md:mr-2" weight="fill" />
                   <span className="hidden md:inline">Comercializadoras</span>
@@ -2011,7 +2255,7 @@ function App() {
                 <h2 className="text-xl md:text-2xl font-semibold">Gestión de Taquillas</h2>
                 <p className="text-muted-foreground text-sm">Administrar puntos de venta y usuarios</p>
               </div>
-              {hasPermission("taquillas") && (
+              {canViewModule("taquillas") && (
                 <Button onClick={() => setTaquillaDialogOpen(true)} className="w-full sm:w-auto">
                   <Plus className="mr-2" />
                   Nueva Taquilla
@@ -2072,10 +2316,14 @@ function App() {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="space-y-2 text-sm">
                         <div>
                           <span className="text-muted-foreground block">Usuario:</span>
-                          {taquilla.username || "N/A"}
+                          {taquilla.email || "N/A"}
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block">Agencia Responsable:</span>
+                          {agencies.find(a => a.id === taquilla.agencyId)?.name || "N/A"}
                         </div>
                         <div>
                           <span className="text-muted-foreground block">Teléfono:</span>
@@ -2129,12 +2377,20 @@ function App() {
           <TabsContent value="agencias" className="space-y-4 md:space-y-6">
             <AgenciesTab
               comercializadoras={comercializadoras}
-              agencies={agencies}
+              agencies={visibleAgencies}
               isLoading={agenciesLoading}
-              onCreate={createAgency}
-              onUpdate={updateAgency}
-              onDelete={deleteAgency}
-              canCreate={hasPermission("agencias")}
+              onCreate={async () => true}
+              onUpdate={async (id, updates) => {
+                // Actualizar usuario
+                return await updateUser(id, { isActive: updates.isActive })
+              }}
+              onDelete={async (id) => {
+                // Eliminar usuario
+                return await deleteUser(id)
+              }}
+              canCreate={canViewModule("agencias")}
+              currentUser={currentUser}
+              createUser={createUser}
             />
           </TabsContent>
 
@@ -2630,6 +2886,8 @@ function App() {
         onOpenChange={setTaquillaDialogOpen}
         onSave={async (data) => createTaquilla(data)}
         agencies={agencies}
+        defaultAgencyId={defaultAgencyId}
+        currentUserEmail={currentUser?.email}
       />
 
       <TaquillaEditDialog

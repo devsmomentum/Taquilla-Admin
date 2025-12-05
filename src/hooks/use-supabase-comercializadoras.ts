@@ -53,12 +53,15 @@ export function useSupabaseComercializadoras(currentUser?: SupabaseUser | null) 
                 }
 
                 // Filtrar localmente si no es admin
+                // DESHABILITADO: mostrar todas las comercializadoras para que puedan seleccionarse
+                /*
                 if (currentUser && !isAdmin) {
                     local = local.filter((c: Comercializadora) =>
                         c.userId === currentUser.id ||
                         c.id === currentUser.comercializadoraId
                     )
                 }
+                */
 
                 setComercializadoras(local)
                 return local

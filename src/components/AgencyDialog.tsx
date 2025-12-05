@@ -22,11 +22,14 @@ export function AgencyDialog({ open, onOpenChange, onSave, comercializadoras, ag
     const [commercializerId, setCommercializerId] = useState('')
     const [shareOnSales, setShareOnSales] = useState('')
     const [shareOnProfits, setShareOnProfits] = useState('')
+    const [email, setEmail] = useState('')
+    const [password, setPassword] = useState('')
     const [saving, setSaving] = useState(false)
     const [errors, setErrors] = useState<Record<string, string>>({})
 
     useEffect(() => {
         if (open) {
+            console.log('🔍 AgencyDialog opened, defaultCommercializerId:', defaultCommercializerId)
             if (agency) {
                 setName(agency.name)
                 setAddress(agency.address)
@@ -34,13 +37,19 @@ export function AgencyDialog({ open, onOpenChange, onSave, comercializadoras, ag
                 setCommercializerId(agency.commercializerId)
                 setShareOnSales((agency.shareOnSales || 0).toString())
                 setShareOnProfits((agency.shareOnProfits || 0).toString())
+                setEmail('')
+                setPassword('')
             } else {
                 setName('')
                 setAddress('')
                 setLogo('')
+                console.log('⚙️ Setting commercializerId to:', defaultCommercializerId || '')
                 setCommercializerId(defaultCommercializerId || '')
                 setShareOnSales('')
                 setShareOnProfits('')
+                setEmail('')
+                setPassword('')
+                console.log('✅ commercializerId state set, value should be:', defaultCommercializerId)
             }
             setErrors({})
         }
@@ -52,6 +61,15 @@ export function AgencyDialog({ open, onOpenChange, onSave, comercializadoras, ag
         if (!name.trim()) newErrors.name = 'El nombre es obligatorio'
         if (!address.trim()) newErrors.address = 'La dirección es obligatoria'
         if (!commercializerId) newErrors.commercializerId = 'Debe asignar un comercializador'
+
+        // Email y password solo son obligatorios al crear (no al editar)
+        if (!agency) {
+            if (!email.trim()) newErrors.email = 'El email es obligatorio'
+            else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = 'Email inválido'
+
+            if (!password.trim()) newErrors.password = 'La contraseña es obligatoria'
+            else if (password.length < 6) newErrors.password = 'Mínimo 6 caracteres'
+        }
 
         if (!shareOnSales) {
             newErrors.shareOnSales = 'El porcentaje de ventas es obligatorio'
@@ -79,15 +97,20 @@ export function AgencyDialog({ open, onOpenChange, onSave, comercializadoras, ag
             logo: logo || undefined,
             commercializerId,
             shareOnSales: parseFloat(shareOnSales),
-            shareOnProfits: parseFloat(shareOnProfits)
-        })
+            shareOnProfits: parseFloat(shareOnProfits),
+            // Solo enviar email y password al crear (no al editar)
+            ...((!agency && email && password) && {
+                userEmail: email,
+                userPassword: password
+            })
+        } as any)
         setSaving(false)
         if (ok) onOpenChange(false)
     }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{agency ? 'Editar Agencia' : 'Nueva Agencia'}</DialogTitle>
                     <DialogDescription>
@@ -132,6 +155,44 @@ export function AgencyDialog({ open, onOpenChange, onSave, comercializadoras, ag
                             placeholder="https://ejemplo.com/logo.png"
                         />
                     </div>
+
+                    {/* Email y Password solo al crear */}
+                    {!agency && (
+                        <>
+                            <div className="grid gap-2">
+                                <Label>Email del Usuario</Label>
+                                <Input
+                                    type="email"
+                                    value={email}
+                                    onChange={e => {
+                                        setEmail(e.target.value)
+                                        if (errors.email) setErrors({ ...errors, email: '' })
+                                    }}
+                                    placeholder="agencia@ejemplo.com"
+                                    className={errors.email ? "border-destructive" : ""}
+                                />
+                                {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+                                <p className="text-xs text-muted-foreground">
+                                    Se creará un usuario con este email para acceder al sistema
+                                </p>
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label>Contraseña</Label>
+                                <Input
+                                    type="password"
+                                    value={password}
+                                    onChange={e => {
+                                        setPassword(e.target.value)
+                                        if (errors.password) setErrors({ ...errors, password: '' })
+                                    }}
+                                    placeholder="Mínimo 6 caracteres"
+                                    className={errors.password ? "border-destructive" : ""}
+                                />
+                                {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
+                            </div>
+                        </>
+                    )}
 
                     <div className="grid gap-2">
                         <Label>Comercializador Responsable</Label>

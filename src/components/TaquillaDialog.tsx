@@ -12,9 +12,10 @@ interface Props {
   onSave: (taq: { fullName: string; address: string; telefono: string; email: string; password?: string; agencyId?: string }) => Promise<boolean>
   agencies: Agency[]
   defaultAgencyId?: string
+  currentUserEmail?: string
 }
 
-export function TaquillaDialog({ open, onOpenChange, onSave, agencies, defaultAgencyId }: Props) {
+export function TaquillaDialog({ open, onOpenChange, onSave, agencies, defaultAgencyId, currentUserEmail }: Props) {
   const [fullName, setFullName] = useState('')
   const [address, setAddress] = useState('')
   const [telefono, setTelefono] = useState('')
@@ -29,9 +30,54 @@ export function TaquillaDialog({ open, onOpenChange, onSave, agencies, defaultAg
       setFullName(''); setAddress(''); setTelefono(''); setEmail(''); setPassword(''); setAgencyId(undefined)
       setErrors({})
     } else {
-      if (defaultAgencyId) setAgencyId(defaultAgencyId)
+      // Cargar agencias desde localStorage si no vienen en props
+      let agenciasParaBuscar = agencies || []
+      if (agenciasParaBuscar.length === 0) {
+        try {
+          const stored = localStorage.getItem('taquilla-agencies')
+          if (stored) {
+            agenciasParaBuscar = JSON.parse(stored)
+          }
+        } catch (e) {
+          console.error('Error cargando agencias:', e)
+        }
+      }
+
+      // Auto-seleccionar agencia
+      if (defaultAgencyId) {
+        setAgencyId(defaultAgencyId)
+      } else if (agenciasParaBuscar.length === 1) {
+        setAgencyId(agenciasParaBuscar[0].id)
+      } else if (agenciasParaBuscar.length > 0) {
+        // Obtener email
+        let userEmail = currentUserEmail
+        if (!userEmail) {
+          try {
+            const authData = JSON.parse(localStorage.getItem('supabase.auth.token') || '{}')
+            userEmail = authData.currentSession?.user?.email
+          } catch (e) { }
+        }
+
+        if (userEmail) {
+          // Buscar por userEmail exacto
+          const myAgency = agenciasParaBuscar.find((a: any) => a.userEmail === userEmail)
+          if (myAgency) {
+            setAgencyId(myAgency.id)
+          } else {
+            // Fallback: buscar por nombre
+            const emailPrefix = userEmail.split('@')[0].toLowerCase().replace('agencia', '').replace('s', '')
+            const agencyByName = agenciasParaBuscar.find((a: any) => {
+              const agencyName = a.name?.toLowerCase().replace(/\s+/g, '').replace('agencia', '') || ''
+              return agencyName.includes(emailPrefix) || emailPrefix.includes(agencyName)
+            })
+            if (agencyByName) {
+              setAgencyId(agencyByName.id)
+            }
+          }
+        }
+      }
     }
-  }, [open, defaultAgencyId])
+  }, [open, defaultAgencyId, agencies, currentUserEmail])
 
   const validate = () => {
     const newErrors: Record<string, string> = {}
@@ -154,11 +200,11 @@ export function TaquillaDialog({ open, onOpenChange, onSave, agencies, defaultAg
           </div>
 
           <div className="grid gap-2">
-            <Label>Agencia (Opcional)</Label>
+            <Label>Agencia</Label>
             <Select
               value={agencyId || "none"}
               onValueChange={(val) => setAgencyId(val === "none" ? undefined : val)}
-              disabled={!!defaultAgencyId}
+              disabled={!!agencyId}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Seleccione una agencia" />

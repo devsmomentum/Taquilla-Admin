@@ -64,6 +64,9 @@ export interface Withdrawal {
   fromPot: string
 }
 
+// Tipos de usuario en el sistema
+export type UserType = 'admin' | 'comercializadora' | 'agencia' | 'taquilla'
+
 export interface Taquilla {
   id: string
   fullName: string
@@ -77,8 +80,9 @@ export interface Taquilla {
   approvedBy?: string
   approvedAt?: string
   createdAt: string
+  userId?: string // Usuario vinculado (userType: 'taquilla')
   agencyId?: string // Agencia a la que pertenece
-  commercializerId?: string // Comercializadora (a través de agencia)
+  commercializerId?: string // Comercializadora (a través de agencia, denormalizado)
 }
 
 export interface Agency {
@@ -86,8 +90,8 @@ export interface Agency {
   name: string
   address: string
   logo?: string
-  userId?: string // Usuario asociado (rol Agencia)
-  commercializerId: string // ID de la comercializadora
+  userId?: string // Usuario vinculado (userType: 'agencia')
+  commercializerId: string // ID de la comercializadora a la que pertenece
   shareOnSales: number
   shareOnProfits: number
   currentBalance: number
@@ -101,7 +105,7 @@ export interface Comercializadora {
   email: string
   address?: string
   logo?: string
-  userId?: string // Usuario asociado (rol Comercializador)
+  userId?: string // Usuario vinculado (userType: 'comercializadora')
   shareOnSales: number
   shareOnProfits: number
   isDefault: boolean
@@ -154,10 +158,19 @@ export interface User {
   name: string
   email: string
   password?: string
-  roleIds: string[]
+  userType?: UserType // Tipo de usuario en la jerarquía de negocio (opcional, default: 'admin')
+  roleIds: string[] // Solo aplicable para userType === 'admin'
   isActive: boolean
   createdAt: string
   createdBy: string
+  // Campos de negocio (para comercializadoras, agencias y taquillas)
+  address?: string // Dirección física
+  shareOnSales?: number // Porcentaje de participación sobre ventas
+  shareOnProfits?: number // Porcentaje de participación sobre ganancias
+  // Relaciones con entidades de negocio
+  comercializadoraId?: string // Si userType === 'comercializadora'
+  agenciaId?: string // Si userType === 'agencia'
+  taquillaId?: string // Si userType === 'taquilla'
 }
 
 export interface ApiKey {

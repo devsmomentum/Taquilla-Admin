@@ -13,36 +13,17 @@ export function useLocalAgencies(currentUser?: SupabaseUser | null) {
         const stored = localStorage.getItem(STORAGE_KEY)
         if (stored) {
             try {
-                let loadedAgencies: Agency[] = JSON.parse(stored)
-
-                // Filtrar según permisos del usuario
-                if (currentUser) {
-                    const isAdmin = currentUser.all_permissions.includes('*') ||
-                        (currentUser.all_permissions.includes('agencias') && !currentUser.comercializadoraId)
-
-                    if (!isAdmin) {
-                        if (currentUser.comercializadoraId) {
-                            // Si es comercializadora, ver solo sus agencias
-                            loadedAgencies = loadedAgencies.filter(a => a.commercializerId === currentUser.comercializadoraId)
-                        } else if (currentUser.agenciaId) {
-                            // Si es agencia, ver solo su propia agencia
-                            loadedAgencies = loadedAgencies.filter(a => a.id === currentUser.agenciaId)
-                        } else {
-                            // Si no tiene permisos ni vinculación, no ve nada
-                            loadedAgencies = []
-                        }
-                    }
-                }
-
+                const loadedAgencies: Agency[] = JSON.parse(stored)
+                console.log('📦 Agencias cargadas:', loadedAgencies.length)
                 setAgencies(loadedAgencies)
             } catch (error) {
-                console.error('Error loading agencies from localStorage:', error)
+                console.error('Error loading agencies:', error)
                 setAgencies([])
             }
         }
-    }, [currentUser])
+    }, [currentUser]) // Re-cargar cuando cambie el usuario
 
-    // Guardar agencias en localStorage cada vez que cambien
+    // Guardar cuando cambien
     useEffect(() => {
         if (agencies.length > 0) {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(agencies))
@@ -59,7 +40,18 @@ export function useLocalAgencies(currentUser?: SupabaseUser | null) {
                 createdAt: new Date().toISOString()
             }
 
-            setAgencies(prev => [newAgency, ...prev])
+            console.log('📝 Creando agencia:', newAgency.name)
+
+            // Cargar todas las agencias existentes del localStorage
+            const stored = localStorage.getItem(STORAGE_KEY)
+            const existing = stored ? JSON.parse(stored) : []
+            const updated = [newAgency, ...existing]
+
+            // Guardar inmediatamente
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+            setAgencies(updated)
+
+            console.log('💾 Guardado. Total:', updated.length)
             return true
         } catch (error) {
             console.error('Error creating agency:', error)
@@ -69,9 +61,9 @@ export function useLocalAgencies(currentUser?: SupabaseUser | null) {
 
     const updateAgency = async (id: string, updates: Partial<Agency>): Promise<boolean> => {
         try {
-            setAgencies(prev => prev.map(a =>
-                a.id === id ? { ...a, ...updates } : a
-            ))
+            const updated = agencies.map(a => a.id === id ? { ...a, ...updates } : a)
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+            setAgencies(updated)
             return true
         } catch (error) {
             console.error('Error updating agency:', error)
@@ -81,7 +73,9 @@ export function useLocalAgencies(currentUser?: SupabaseUser | null) {
 
     const deleteAgency = async (id: string): Promise<boolean> => {
         try {
-            setAgencies(prev => prev.filter(a => a.id !== id))
+            const updated = agencies.filter(a => a.id !== id)
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+            setAgencies(updated)
             return true
         } catch (error) {
             console.error('Error deleting agency:', error)

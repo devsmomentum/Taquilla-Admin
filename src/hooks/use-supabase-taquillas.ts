@@ -40,8 +40,9 @@ export function useSupabaseTaquillas(currentUser?: SupabaseUser | null) {
 
         // Filtrado local
         if (currentUser && !isAdmin) {
-          if (currentUser.agenciaId) {
-            local = local.filter((t: Taquilla) => t.agencyId === currentUser.agenciaId)
+          if (currentUser.userType === 'agencia') {
+            // Agencia: ve TODAS las taquillas (sin filtro)
+            // No filtrar por agenciaId
           } else if (currentUser.comercializadoraId) {
             // Necesitamos saber qué agencias son de esta comercializadora
             const localAgencies = JSON.parse(localStorage.getItem('taquilla-agencies') || '[]')
