@@ -170,7 +170,7 @@ function App() {
     name: user.name,
     address: user.address || '',
     logo: undefined,
-    commercializerId: '',
+    parentId: user.parentId || '',
     shareOnSales: user.shareOnSales || 0,
     shareOnProfits: user.shareOnProfits || 0,
     currentBalance: 0,
@@ -188,7 +188,7 @@ function App() {
     email: user.email,
     username: user.email.split('@')[0],
     isApproved: user.isActive,
-    agencyId: user.agenciaId,
+    parentId: user.parentId,
     createdAt: user.createdAt,
     shareOnSales: user.shareOnSales || 0,
     shareOnProfits: user.shareOnProfits || 0
@@ -206,7 +206,6 @@ function App() {
       userId: user.id,
       shareOnSales: user.shareOnSales || 0,
       shareOnProfits: user.shareOnProfits || 0,
-      isDefault: false, // Default not yet supported in users table
       isActive: user.isActive,
       createdAt: user.createdAt,
       createdBy: user.createdBy,
@@ -244,28 +243,10 @@ function App() {
     return await deleteUser(id)
   }
 
-  const setDefaultComercializadora = async (id: string) => {
-    // Not implemented for users table yet
-    return true
-  }
-
   // Funciones para taquillas usando createUser/updateUser/deleteUser
   const createTaquilla = async (input: any) => {
-    // Determinar comercializadoraId: del input, del currentUser o buscar de la agencia
-    let comercializadoraId = input.comercializadoraId
-
-    // Si no viene, intentar obtenerlo del usuario actual
-    if (!comercializadoraId && currentUser?.comercializadoraId) {
-      comercializadoraId = currentUser.comercializadoraId
-    }
-
-    // Si aún no lo tenemos y hay agenciaId, buscar la comercializadora de esa agencia
-    if (!comercializadoraId && input.agencyId) {
-      const agency = agencies.find(a => a.id === input.agencyId)
-      if (agency?.commercializerId) {
-        comercializadoraId = agency.commercializerId
-      }
-    }
+    // parentId para taquilla = agencyId (la agencia a la que pertenece)
+    const parentId = input.agencyId || input.parentId
 
     const success = await createUser({
       name: input.fullName,
@@ -278,9 +259,7 @@ function App() {
       address: input.address || '',
       shareOnSales: input.shareOnSales || 0,
       shareOnProfits: input.shareOnProfits || 0,
-      agenciaId: input.agencyId,
-      // Para RLS jerárquico - MUY IMPORTANTE
-      comercializadoraId: comercializadoraId
+      parentId: parentId
     })
     return success
   }
@@ -874,7 +853,8 @@ function App() {
 
   // Calcular defaultAgencyId
   const getDefaultAgencyId = () => {
-    if (currentUser?.agenciaId) return currentUser.agenciaId
+    // Si el usuario es una agencia, su propio ID es la agencia
+    if (currentUser?.userType === 'agencia') return currentUser.id
     if (visibleAgencies.length === 1) return visibleAgencies[0].id
 
     // Buscar agencia que coincida con el email del usuario
@@ -2336,8 +2316,14 @@ function App() {
               isLoading={agenciesLoading}
               onCreate={async () => true}
               onUpdate={async (id, updates) => {
-                // Actualizar usuario
-                return await updateUser(id, { isActive: updates.isActive })
+                return await updateUser(id, {
+                  name: updates.name,
+                  address: updates.address,
+                  parentId: updates.parentId,
+                  shareOnSales: updates.shareOnSales,
+                  shareOnProfits: updates.shareOnProfits,
+                  isActive: updates.isActive
+                })
               }}
               onDelete={async (id) => {
                 // Eliminar usuario
@@ -2361,7 +2347,6 @@ function App() {
                   toast.error('No se pudo eliminar la comercializadora')
                 }
               }}
-              onSetDefault={setDefaultComercializadora}
               currentUserId={currentUserId}
               createUser={createUser}
             />

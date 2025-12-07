@@ -106,7 +106,6 @@ interface AppContextType {
   createComercializadora: (input: any) => Promise<boolean>
   updateComercializadora: (id: string, updates: any) => Promise<boolean>
   deleteComercializadora: (id: string) => Promise<boolean>
-  setDefaultComercializadora: (id: string) => Promise<boolean>
 
   // Agencies
   agenciesLoading: boolean
@@ -246,13 +245,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Auto-play tomorrow
   useAutoPlayTomorrow(lotteries, updateLottery)
 
-  // Derived: agencies from users
+  // Derived: agencies from users (parentId = comercializadora)
   const agencies = (supabaseUsers || []).filter(u => u.userType === 'agencia').map(user => ({
     id: user.id,
     name: user.name,
     address: user.address || '',
     logo: undefined,
-    commercializerId: '',
+    parentId: user.parentId || '',
     shareOnSales: user.shareOnSales || 0,
     shareOnProfits: user.shareOnProfits || 0,
     currentBalance: 0,
@@ -260,7 +259,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     createdAt: user.createdAt
   }))
 
-  // Derived: taquillas from users
+  // Derived: taquillas from users (parentId = agencia)
   const taquillas = (supabaseUsers || []).filter(u => u.userType === 'taquilla').map(user => ({
     id: user.id,
     fullName: user.name,
@@ -269,7 +268,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     email: user.email,
     username: user.email.split('@')[0],
     isApproved: user.isActive,
-    agencyId: user.agenciaId,
+    parentId: user.parentId,
     createdAt: user.createdAt,
     shareOnSales: user.shareOnSales || 0,
     shareOnProfits: user.shareOnProfits || 0
@@ -287,7 +286,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       userId: user.id,
       shareOnSales: user.shareOnSales || 0,
       shareOnProfits: user.shareOnProfits || 0,
-      isDefault: false,
       isActive: user.isActive,
       createdAt: user.createdAt,
       createdBy: user.createdBy,
@@ -295,18 +293,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Taquilla CRUD using createUser/updateUser/deleteUser
   const createTaquilla = async (input: any) => {
-    let comercializadoraId = input.comercializadoraId
-
-    if (!comercializadoraId && currentUser?.comercializadoraId) {
-      comercializadoraId = currentUser.comercializadoraId
-    }
-
-    if (!comercializadoraId && input.agencyId) {
-      const agency = agencies.find(a => a.id === input.agencyId)
-      if (agency?.commercializerId) {
-        comercializadoraId = agency.commercializerId
-      }
-    }
+    // parentId para taquilla = agencyId (la agencia a la que pertenece)
+    const parentId = input.agencyId || input.parentId
 
     const success = await createUser({
       name: input.fullName,
@@ -319,8 +307,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       address: input.address || '',
       shareOnSales: input.shareOnSales || 0,
       shareOnProfits: input.shareOnProfits || 0,
-      agenciaId: input.agencyId,
-      comercializadoraId: comercializadoraId
+      parentId: parentId
     })
     return success
   }
@@ -368,11 +355,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return await deleteUser(id)
   }
 
-  const setDefaultComercializadora = async (id: string) => {
-    // Not implemented for users table yet
-    return true
-  }
-
   // Visibility filters
   const getVisibleAgencies = () => {
     if (!currentUser) return []
@@ -398,7 +380,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Default agency ID
   const getDefaultAgencyId = () => {
-    if (currentUser?.agenciaId) return currentUser.agenciaId
+    // Si el usuario es una agencia, su propio ID es la agencia
+    if (currentUser?.userType === 'agencia') return currentUser.id
     if (visibleAgencies.length === 1) return visibleAgencies[0].id
     if (currentUser?.email && visibleAgencies.length > 0) {
       const emailPrefix = currentUser.email.split('@')[0].toLowerCase().replace('agencia', '')
@@ -494,7 +477,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     createComercializadora,
     updateComercializadora,
     deleteComercializadora,
-    setDefaultComercializadora,
 
     // Agencies
     agenciesLoading: usersLoading,

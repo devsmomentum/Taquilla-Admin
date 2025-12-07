@@ -81,8 +81,9 @@ export interface Taquilla {
   approvedAt?: string
   createdAt: string
   userId?: string // Usuario vinculado (userType: 'taquilla')
-  agencyId?: string // Agencia a la que pertenece
-  commercializerId?: string // Comercializadora (a través de agencia, denormalizado)
+  parentId?: string // ID de la agencia (relación jerárquica)
+  shareOnSales?: number
+  shareOnProfits?: number
 }
 
 export interface Agency {
@@ -91,7 +92,7 @@ export interface Agency {
   address: string
   logo?: string
   userId?: string // Usuario vinculado (userType: 'agencia')
-  commercializerId: string // ID de la comercializadora a la que pertenece
+  parentId: string // ID de la comercializadora (relación jerárquica)
   shareOnSales: number
   shareOnProfits: number
   currentBalance: number
@@ -108,7 +109,6 @@ export interface Comercializadora {
   userId?: string // Usuario vinculado (userType: 'comercializadora')
   shareOnSales: number
   shareOnProfits: number
-  isDefault: boolean
   isActive: boolean
   createdAt: string
   createdBy?: string
@@ -167,10 +167,8 @@ export interface User {
   address?: string // Dirección física
   shareOnSales?: number // Porcentaje de participación sobre ventas
   shareOnProfits?: number // Porcentaje de participación sobre ganancias
-  // Relaciones con entidades de negocio
-  comercializadoraId?: string // Si userType === 'comercializadora'
-  agenciaId?: string // Si userType === 'agencia'
-  taquillaId?: string // Si userType === 'taquilla'
+  // Relación jerárquica: agencia→comercializadora, taquilla→agencia
+  parentId?: string // ID del padre jerárquico
 }
 
 export interface ApiKey {

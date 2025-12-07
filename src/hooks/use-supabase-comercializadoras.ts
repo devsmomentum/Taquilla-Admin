@@ -32,37 +32,7 @@ export function useSupabaseComercializadoras(currentUser?: SupabaseUser | null) 
 
             if (!(await testConnection())) {
                 console.log('📦 Modo local: Cargando comercializadoras desde localStorage')
-                let local = JSON.parse(localStorage.getItem('comercializadoras_backup') || '[]')
-
-                // Si no hay datos locales, crear una comercializadora de ejemplo
-                if (local.length === 0) {
-                    const defaultComercializadora: Comercializadora = {
-                        id: 'local-comercializadora-default',
-                        name: 'Comercializadora Principal (Local)',
-                        email: 'comercializadora@local.com',
-                        address: 'Dirección de ejemplo',
-                        shareOnSales: 10,
-                        shareOnProfits: 50,
-                        isDefault: true,
-                        isActive: true,
-                        createdAt: new Date().toISOString(),
-                        createdBy: 'local-system'
-                    }
-                    local = [defaultComercializadora]
-                    localStorage.setItem('comercializadoras_backup', JSON.stringify(local))
-                }
-
-                // Filtrar localmente si no es admin
-                // DESHABILITADO: mostrar todas las comercializadoras para que puedan seleccionarse
-                /*
-                if (currentUser && !isAdmin) {
-                    local = local.filter((c: Comercializadora) =>
-                        c.userId === currentUser.id ||
-                        c.id === currentUser.comercializadoraId
-                    )
-                }
-                */
-
+                const local = JSON.parse(localStorage.getItem('comercializadoras_backup') || '[]')
                 setComercializadoras(local)
                 return local
             }
@@ -74,8 +44,9 @@ export function useSupabaseComercializadoras(currentUser?: SupabaseUser | null) 
 
             // Filtrar remotamente si no es admin
             if (currentUser && !isAdmin) {
-                if (currentUser.comercializadoraId) {
-                    query = query.eq('id', currentUser.comercializadoraId)
+                if (currentUser.userType === 'comercializadora') {
+                    // Si el usuario es comercializadora, su id es el id de la comercializadora
+                    query = query.eq('id', currentUser.id)
                 } else {
                     query = query.eq('user_id', currentUser.id)
                 }
@@ -94,7 +65,6 @@ export function useSupabaseComercializadoras(currentUser?: SupabaseUser | null) 
                 userId: c.user_id,
                 shareOnSales: parseFloat(c.share_on_sales || 0),
                 shareOnProfits: parseFloat(c.share_on_profits || 0),
-                isDefault: !!c.is_default,
                 isActive: !!c.is_active,
                 createdAt: c.created_at,
                 createdBy: c.created_by,
@@ -136,7 +106,6 @@ export function useSupabaseComercializadoras(currentUser?: SupabaseUser | null) 
                     user_id: input.userId,
                     share_on_sales: input.shareOnSales,
                     share_on_profits: input.shareOnProfits,
-                    is_default: input.isDefault,
                     is_active: input.isActive,
                     created_by: input.createdBy,
                 }])
@@ -178,6 +147,7 @@ export function useSupabaseComercializadoras(currentUser?: SupabaseUser | null) 
         updates: Partial<Omit<Comercializadora, 'id' | 'createdAt'>>
     ): Promise<boolean> => {
         try {
+            console.log('🔄 updateComercializadora recibido:', { id, updates })
             let remoteOk = false
 
             if (await testConnection()) {
@@ -189,8 +159,9 @@ export function useSupabaseComercializadoras(currentUser?: SupabaseUser | null) 
                 if (updates.userId !== undefined) supUpdates.user_id = updates.userId
                 if (updates.shareOnSales !== undefined) supUpdates.share_on_sales = updates.shareOnSales
                 if (updates.shareOnProfits !== undefined) supUpdates.share_on_profits = updates.shareOnProfits
-                if (updates.isDefault !== undefined) supUpdates.is_default = updates.isDefault
                 if (updates.isActive !== undefined) supUpdates.is_active = updates.isActive
+
+                console.log('📤 Enviando a tabla comercializadoras:', supUpdates)
 
                 const { error } = await supabase
                     .from('comercializadoras')
@@ -214,7 +185,6 @@ export function useSupabaseComercializadoras(currentUser?: SupabaseUser | null) 
                 userId: updates.userId ?? c.userId,
                 shareOnSales: updates.shareOnSales ?? c.shareOnSales,
                 shareOnProfits: updates.shareOnProfits ?? c.shareOnProfits,
-                isDefault: updates.isDefault ?? c.isDefault,
                 isActive: updates.isActive ?? c.isActive,
             } : c)
 
@@ -239,13 +209,6 @@ export function useSupabaseComercializadoras(currentUser?: SupabaseUser | null) 
             let remoteOk = false
 
             if (await testConnection()) {
-                // Verificar que no sea la por defecto
-                const comercializadora = comercializadoras.find(c => c.id === id)
-                if (comercializadora?.isDefault) {
-                    toast.error('No se puede eliminar la comercializadora por defecto')
-                    return false
-                }
-
                 // Verificar que no tenga agencias asociadas
                 const { data: agencias } = await supabase
                     .from('agencias')
@@ -287,41 +250,6 @@ export function useSupabaseComercializadoras(currentUser?: SupabaseUser | null) 
         }
     }, [comercializadoras, testConnection])
 
-    const setDefaultComercializadora = useCallback(async (id: string): Promise<boolean> => {
-        try {
-            if (!(await testConnection())) {
-                toast.error('No hay conexión con la base de datos')
-                return false
-            }
-
-            // Primero, quitar el flag de default de todas
-            await supabase
-                .from('comercializadoras')
-                .update({ is_default: false })
-                .neq('id', id)
-
-            // Luego, marcar la nueva como default
-            const { error } = await supabase
-                .from('comercializadoras')
-                .update({ is_default: true })
-                .eq('id', id)
-
-            if (error) {
-                console.error('Error setting default comercializadora:', error)
-                toast.error('Error al establecer comercializadora por defecto: ' + error.message)
-                return false
-            }
-
-            await loadComercializadoras()
-            toast.success('Comercializadora por defecto actualizada')
-            return true
-        } catch (e) {
-            console.error('Error in setDefaultComercializadora:', e)
-            toast.error('Error al establecer comercializadora por defecto')
-            return false
-        }
-    }, [testConnection, loadComercializadoras])
-
     useEffect(() => {
         loadComercializadoras()
     }, [loadComercializadoras])
@@ -333,7 +261,6 @@ export function useSupabaseComercializadoras(currentUser?: SupabaseUser | null) 
         loadComercializadoras,
         createComercializadora,
         updateComercializadora,
-        deleteComercializadora,
-        setDefaultComercializadora
+        deleteComercializadora
     }
 }

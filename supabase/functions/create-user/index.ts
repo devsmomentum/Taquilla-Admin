@@ -21,9 +21,7 @@ Deno.serve(async (req) => {
             address,
             shareOnSales,
             shareOnProfits,
-            agenciaId,
-            comercializadoraId,  // Para aislamiento jerárquico RLS
-            parentId             // ID del usuario padre (creador)
+            parentId  // ID del padre jerárquico (comercializadora para agencia, agencia para taquilla)
         } = await req.json()
 
         // Validaciones
@@ -98,7 +96,7 @@ Deno.serve(async (req) => {
 
         // 3. Crear registro en public.users
         console.log('📊 Creando en public.users...')
-        console.log('📊 shareOnSales:', shareOnSales, 'shareOnProfits:', shareOnProfits)
+        console.log('📊 shareOnSales:', shareOnSales, 'shareOnProfits:', shareOnProfits, 'parentId:', parentId)
         const { error: publicError } = await supabaseAdmin
             .from('users')
             .insert({
@@ -107,14 +105,12 @@ Deno.serve(async (req) => {
                 email: email,
                 password_hash: 'managed_by_supabase_auth',
                 is_active: isActive ?? true,
-                created_by: parentId || null,  // Quién lo creó
-                parent_id: parentId || null,   // Para jerarquía RLS
+                created_by: parentId || null,
+                parent_id: parentId || null,
                 user_type: userType || 'admin',
                 address: address || null,
                 share_on_sales: parseFloat(shareOnSales) || 0,
-                share_on_profits: parseFloat(shareOnProfits) || 0,
-                agencia_id: agenciaId || null,
-                comercializadora_id: comercializadoraId || null  // Para aislamiento RLS
+                share_on_profits: parseFloat(shareOnProfits) || 0
             })
 
         if (publicError) {

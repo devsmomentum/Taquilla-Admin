@@ -30,7 +30,6 @@ export function ComercializadoraDialog({
     const [address, setAddress] = useState('')
     const [shareOnSales, setShareOnSales] = useState(0)
     const [shareOnProfits, setShareOnProfits] = useState(0)
-    const [isDefault, setIsDefault] = useState(false)
     const [isActive, setIsActive] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
 
@@ -41,7 +40,6 @@ export function ComercializadoraDialog({
             setAddress(comercializadora.address || '')
             setShareOnSales(comercializadora.shareOnSales || 0)
             setShareOnProfits(comercializadora.shareOnProfits || 0)
-            setIsDefault(comercializadora.isDefault)
             setIsActive(comercializadora.isActive)
             setPassword('')
         } else {
@@ -56,7 +54,6 @@ export function ComercializadoraDialog({
         setAddress('')
         setShareOnSales(0)
         setShareOnProfits(0)
-        setIsDefault(false)
         setIsActive(true)
     }
 
@@ -133,7 +130,6 @@ export function ComercializadoraDialog({
                 address: address.trim() || undefined,
                 shareOnSales,
                 shareOnProfits,
-                isDefault,
                 isActive,
                 createdBy: currentUserId,
             })

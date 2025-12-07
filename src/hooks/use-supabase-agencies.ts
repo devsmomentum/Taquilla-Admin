@@ -26,7 +26,7 @@ export function useSupabaseAgencies() {
                 name: item.name,
                 address: item.address,
                 logo: item.logo,
-                commercializerId: item.parent_id, // Mapped from parent_id
+                parentId: item.parent_id, // Mapped from parent_id
                 shareOnSales: parseFloat(item.share_on_sales || 0),
                 shareOnProfits: parseFloat(item.share_on_profits || 0),
                 currentBalance: parseFloat(item.current_balance || 0),
@@ -63,7 +63,7 @@ export function useSupabaseAgencies() {
                 email: tempEmail,
                 password_hash: `hash_${tempPassword}`, // Placeholder
                 user_type: 'agencia',
-                parent_id: agency.commercializerId || currentUserId, // Should be the creator
+                parent_id: agency.parentId || currentUserId, // parentId = comercializadora
                 address: agency.address,
                 logo: agency.logo,
                 share_on_sales: agency.shareOnSales || 0,
@@ -96,7 +96,7 @@ export function useSupabaseAgencies() {
             if (updates.name !== undefined) supabaseUpdates.name = updates.name
             if (updates.address !== undefined) supabaseUpdates.address = updates.address
             if (updates.logo !== undefined) supabaseUpdates.logo = updates.logo
-            if (updates.commercializerId !== undefined) supabaseUpdates.parent_id = updates.commercializerId
+            if (updates.parentId !== undefined) supabaseUpdates.parent_id = updates.parentId
             if (updates.shareOnSales !== undefined) supabaseUpdates.share_on_sales = updates.shareOnSales
             if (updates.shareOnProfits !== undefined) supabaseUpdates.share_on_profits = updates.shareOnProfits
             if (updates.currentBalance !== undefined) supabaseUpdates.current_balance = updates.currentBalance

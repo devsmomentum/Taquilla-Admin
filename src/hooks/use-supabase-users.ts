@@ -98,8 +98,6 @@ export function useSupabaseUsers() {
           address,
           share_on_sales,
           share_on_profits,
-          comercializadora_id,
-          agencia_id,
           parent_id
         `)
         .order('created_at', { ascending: true })
@@ -129,9 +127,6 @@ export function useSupabaseUsers() {
             isActive: user.is_active,
             createdAt: user.created_at,
             createdBy: user.created_by || 'system',
-            // Campos para RLS jerárquico
-            comercializadoraId: user.comercializadora_id,
-            agenciaId: user.agencia_id,
             parentId: user.parent_id
           }
         })
@@ -199,8 +194,7 @@ export function useSupabaseUsers() {
       address: userData.address,
       shareOnSales: userData.shareOnSales || 0,
       shareOnProfits: userData.shareOnProfits || 0,
-      agenciaId: userData.agenciaId,
-      comercializadoraId: userData.comercializadoraId
+      parentId: userData.parentId
     }
 
     let supabaseSuccess = false
@@ -239,9 +233,7 @@ export function useSupabaseUsers() {
               address: userData.address || null,
               shareOnSales: userData.shareOnSales || 0,
               shareOnProfits: userData.shareOnProfits || 0,
-              agenciaId: userData.agenciaId || null,
-              comercializadoraId: userData.comercializadoraId || null,  // Para RLS jerárquico
-              parentId: userData.createdBy || null  // ID del usuario padre para RLS
+              parentId: userData.parentId || null
             })
           }
         )
@@ -319,13 +311,18 @@ export function useSupabaseUsers() {
           }
         }
 
+        const updateData: any = {}
+        if (userData.name !== undefined) updateData.name = userData.name
+        if (userData.email !== undefined) updateData.email = userData.email
+        if (userData.isActive !== undefined) updateData.is_active = userData.isActive
+        if (userData.address !== undefined) updateData.address = userData.address
+        if (userData.parentId !== undefined) updateData.parent_id = userData.parentId
+        if (userData.shareOnSales !== undefined) updateData.share_on_sales = userData.shareOnSales
+        if (userData.shareOnProfits !== undefined) updateData.share_on_profits = userData.shareOnProfits
+
         const { error } = await supabase
           .from('users')
-          .update({
-            name: userData.name,
-            email: userData.email,
-            is_active: userData.isActive,
-          })
+          .update(updateData)
           .eq('id', userId)
 
         if (error) {

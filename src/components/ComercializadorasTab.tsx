@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Plus, Pencil, Trash, MagnifyingGlass, CheckCircle, XCircle, Star, Warning } from "@phosphor-icons/react"
+import { Plus, Pencil, Trash, MagnifyingGlass, CheckCircle, XCircle, Warning } from "@phosphor-icons/react"
 import { Comercializadora, User } from "@/lib/types"
 import { ComercializadoraDialog } from "./ComercializadoraDialog"
 import { format } from "date-fns"
@@ -18,7 +18,6 @@ interface ComercializadorasTabProps {
     onCreate: (comercializadora: Omit<Comercializadora, 'id' | 'createdAt'>) => Promise<boolean>
     onUpdate: (id: string, updates: Partial<Omit<Comercializadora, 'id' | 'createdAt'>>) => Promise<boolean>
     onDelete: (id: string) => Promise<void>
-    onSetDefault: (id: string) => Promise<boolean>
     currentUserId?: string
     createUser?: (userData: Omit<User, 'id' | 'createdAt'>) => Promise<boolean>
 }
@@ -29,7 +28,6 @@ export function ComercializadorasTab({
     onCreate,
     onUpdate,
     onDelete,
-    onSetDefault,
     currentUserId,
     createUser
 }: ComercializadorasTabProps) {
@@ -71,15 +69,7 @@ export function ComercializadorasTab({
         }
     }
 
-    const handleSetDefault = async (id: string) => {
-        await onSetDefault(id)
-    }
-
     const handleDeleteClick = (comercializadora: Comercializadora) => {
-        if (comercializadora.isDefault) {
-            toast.error("No se puede eliminar la comercializadora predeterminada")
-            return
-        }
         setComercializadoraToDelete(comercializadora)
         setDeleteDialogOpen(true)
     }
@@ -195,15 +185,7 @@ export function ComercializadorasTab({
                                         {filteredComercializadoras.map((comercializadora) => (
                                             <TableRow key={comercializadora.id}>
                                                 <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-medium">{comercializadora.name}</span>
-                                                        {comercializadora.isDefault && (
-                                                            <Badge variant="default" className="gap-1">
-                                                                <Star weight="fill" size={12} />
-                                                                Por Defecto
-                                                            </Badge>
-                                                        )}
-                                                    </div>
+                                                    <span className="font-medium">{comercializadora.name}</span>
                                                 </TableCell>
                                                 <TableCell className="text-muted-foreground">
                                                     {comercializadora.email}
