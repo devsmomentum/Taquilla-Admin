@@ -49,9 +49,7 @@ export interface BetLimit {
 // Función de test de conexión Supabase (fuera del hook para poder exportarla)
 export const testConnection = async (): Promise<boolean> => {
   try {
-    console.log('🔍 Testing Supabase connection...')
-    console.log('🔗 Supabase URL:', import.meta.env.VITE_SUPABASE_URL)
-    console.log('🔑 Supabase Key present:', !!import.meta.env.VITE_SUPABASE_ANON_KEY)
+    // Testing Supabase connection
 
     // Health check: solo SELECT (evita políticas de INSERT)
     const { error: healthError } = await supabase
@@ -59,15 +57,14 @@ export const testConnection = async (): Promise<boolean> => {
       .select('*', { head: true, count: 'exact' })
 
     if (healthError) {
-      console.error('❌ Health check failed:', healthError)
-      console.error('Error details:', JSON.stringify(healthError, null, 2))
+      // Health check failed
       return false
     }
 
-    console.log('✅ Health check passed! SELECT on draws is accessible.')
+    // Health check passed
     return true
   } catch (error) {
-    console.error('💥 Unexpected error during connection test:', error)
+    // Unexpected error during connection test
     return false
   }
 }
@@ -217,7 +214,7 @@ export const useSupabaseDraws = () => {
         .eq('id', id)
 
       if (supabaseError) {
-        console.warn('Error updating draw in Supabase:', supabaseError)
+        // Error updating draw in Supabase
         // Actualizar localmente
         const updatedDraws = draws.map(draw => {
           if (draw.id !== id) return draw
@@ -237,7 +234,7 @@ export const useSupabaseDraws = () => {
         return true
       }
     } catch (err) {
-      console.error('Error updating draw:', err)
+      // Error updating draw
       toast.error('Error al actualizar el sorteo')
       return false
     }
@@ -252,7 +249,7 @@ export const useSupabaseDraws = () => {
         .eq('id', id)
 
       if (supabaseError) {
-        console.warn('Error deleting draw in Supabase:', supabaseError)
+        // Error deleting draw in Supabase
         // Eliminar localmente
         const updatedDraws = draws.filter(draw => draw.id !== id)
         setDraws(updatedDraws)
@@ -266,7 +263,7 @@ export const useSupabaseDraws = () => {
         return true
       }
     } catch (err) {
-      console.error('Error deleting draw:', err)
+      // Error deleting draw
       toast.error('Error al eliminar el sorteo')
       return false
     }
@@ -278,9 +275,9 @@ export const useSupabaseDraws = () => {
       // Primero probar la conexión
       const connectionOk = await testConnection()
       if (connectionOk) {
-        console.log('🎯 Connection test passed, loading draws...')
+        // Connection test passed
       } else {
-        console.warn('⚠️ Connection test failed, will use fallback...')
+        // Connection test failed
       }
       
       // Luego cargar los datos

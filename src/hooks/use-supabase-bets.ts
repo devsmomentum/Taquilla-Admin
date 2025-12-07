@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/config/supabase'
 import { toast } from 'sonner'
 
+
 export interface SupabaseBet {
   id: string
   lottery_id: string
@@ -54,13 +55,19 @@ const mapLocalBet = (localBet: Omit<Bet, 'id' | 'timestamp'>): Omit<SupabaseBet,
   user_id: localBet.userId
 })
 
-export function useSupabaseBets() {
+// Funciones stub para cuando el hook está deshabilitado
+const noopAsync = async () => false
+const noopAsyncVoid = async () => {}
+
+export function useSupabaseBets(enabled: boolean = true) {
+  // TODOS los hooks deben declararse antes de cualquier return condicional
   const [bets, setBets] = useState<Bet[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isConnected, setIsConnected] = useState(false)
 
   // Función para probar la conexión
   const testConnection = useCallback(async (): Promise<boolean> => {
+    if (!enabled) return false
     try {
       const { error } = await supabase
         .from('bets')
@@ -68,30 +75,30 @@ export function useSupabaseBets() {
         .limit(1)
 
       if (error) {
-        console.log('❌ Error de conexión:', error.message)
         setIsConnected(false)
         return false
       }
 
-      console.log('✅ Conexión a Supabase OK')
       setIsConnected(true)
       return true
     } catch (err) {
-      console.log('❌ Error de red:', err)
       setIsConnected(false)
       return false
     }
-  }, [])
+  }, [enabled])
 
   // Cargar jugadas desde Supabase + fallback local
   const loadBets = useCallback(async () => {
+    if (!enabled) {
+      setIsLoading(false)
+      return
+    }
+
     setIsLoading(true)
     try {
-      console.log('🔄 Cargando jugadas desde Supabase...')
-      
       // Probar conexión primero
       const connectionOK = await testConnection()
-      
+
       if (connectionOK) {
         const { data: supabaseBets, error } = await supabase
           .from('bets')
@@ -99,21 +106,16 @@ export function useSupabaseBets() {
           .order('created_at', { ascending: false })
 
         if (error) {
-          console.log('❌ Error cargando jugadas:', error.message)
           // Cargar desde localStorage como fallback
           const localBets = JSON.parse(localStorage.getItem('supabase_bets_backup_v2') || '[]')
-          console.log(`🔄 Cargando ${localBets.length} jugadas desde localStorage`)
           setBets(localBets)
           setIsConnected(false)
           toast.error('Error cargando jugadas, usando datos locales')
         } else {
           const mappedBets = supabaseBets.map(mapSupabaseBet)
-          console.log(`🎯 Mapeando ${supabaseBets.length} jugadas de Supabase:`, supabaseBets)
-          console.log(`📋 Resultado mapeado:`, mappedBets)
           setBets(mappedBets)
           // Guardar backup local
           localStorage.setItem('supabase_bets_backup_v2', JSON.stringify(mappedBets))
-          console.log(`✅ ${mappedBets.length} jugadas cargadas desde Supabase`)
           setIsConnected(true)
         }
       } else {
@@ -123,7 +125,6 @@ export function useSupabaseBets() {
         toast.error('Sin conexión, usando datos locales')
       }
     } catch (err) {
-      console.log('❌ Error general cargando jugadas:', err)
       const localBets = JSON.parse(localStorage.getItem('supabase_bets_backup_v2') || '[]')
       setBets(localBets)
       setIsConnected(false)
@@ -131,19 +132,19 @@ export function useSupabaseBets() {
     } finally {
       setIsLoading(false)
     }
-  }, [testConnection])
+  }, [enabled, testConnection])
 
   // Crear nueva jugada
   const createBet = useCallback(async (betData: Omit<Bet, 'id' | 'timestamp'>): Promise<boolean> => {
-    try {
-      console.log('📝 Creando nueva jugada...', betData)
+    if (!enabled) return false
 
+    try {
       // Probar conexión primero
       const connectionOK = await testConnection()
 
       if (connectionOK) {
         const supabaseData = mapLocalBet(betData)
-        
+
         const { data: createdBet, error } = await supabase
           .from('bets')
           .insert([supabaseData])
@@ -151,8 +152,6 @@ export function useSupabaseBets() {
           .single()
 
         if (error) {
-          console.log('❌ Error creando jugada en Supabase:', error.message)
-          
           // Guardar localmente como fallback
           const newBet: Bet = {
             id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -160,19 +159,18 @@ export function useSupabaseBets() {
             timestamp: new Date().toISOString(),
             isWinner: false
           }
-          
+
           const currentBets = [...bets, newBet]
           setBets(currentBets)
           localStorage.setItem('supabase_bets_backup_v2', JSON.stringify(currentBets))
-          
+
           toast.error('Error guardando en servidor, guardado localmente')
           setIsConnected(false)
           return true // Retornamos true porque sí se guardó localmente
         } else {
-          console.log('✅ Jugada creada exitosamente:', createdBet.id)
           toast.success('Jugada registrada exitosamente')
           setIsConnected(true)
-          
+
           // Recargar todas las jugadas para asegurar sincronización
           await loadBets()
           return true
@@ -185,23 +183,24 @@ export function useSupabaseBets() {
           timestamp: new Date().toISOString(),
           isWinner: false
         }
-        
+
         const currentBets = [...bets, newBet]
         setBets(currentBets)
         localStorage.setItem('supabase_bets_backup_v2', JSON.stringify(currentBets))
-        
+
         toast.success('Jugada guardada localmente (sin conexión)')
         return true
       }
     } catch (err) {
-      console.log('❌ Error general creando jugada:', err)
       toast.error('Error inesperado creando jugada')
       return false
     }
-  }, [bets, testConnection, loadBets])
+  }, [enabled, bets, testConnection, loadBets])
 
   // Actualizar jugada existente
   const updateBet = useCallback(async (id: string, updates: Partial<Bet>): Promise<boolean> => {
+    if (!enabled) return false
+
     try {
       const connectionOK = await testConnection()
 
@@ -222,7 +221,6 @@ export function useSupabaseBets() {
           .eq('id', id)
 
         if (error) {
-          console.log('❌ Error actualizando jugada:', error.message)
           toast.error('Error actualizando jugada en servidor')
           setIsConnected(false)
           return false
@@ -230,25 +228,26 @@ export function useSupabaseBets() {
       }
 
       // Actualizar estado local
-      const updatedBets = bets.map(bet => 
-        bet.id === id 
+      const updatedBets = bets.map(bet =>
+        bet.id === id
           ? { ...bet, ...updates }
           : bet
       )
       setBets(updatedBets)
       localStorage.setItem('supabase_bets_backup_v2', JSON.stringify(updatedBets))
-      
+
       toast.success('Jugada actualizada')
       return true
     } catch (err) {
-      console.log('❌ Error actualizando jugada:', err)
       toast.error('Error inesperado actualizando jugada')
       return false
     }
-  }, [bets, testConnection])
+  }, [enabled, bets, testConnection])
 
   // Eliminar jugada
   const deleteBet = useCallback(async (id: string): Promise<boolean> => {
+    if (!enabled) return false
+
     try {
       const connectionOK = await testConnection()
 
@@ -259,7 +258,6 @@ export function useSupabaseBets() {
           .eq('id', id)
 
         if (error) {
-          console.log('❌ Error eliminando jugada:', error.message)
           toast.error('Error eliminando jugada del servidor')
           setIsConnected(false)
           return false
@@ -270,22 +268,23 @@ export function useSupabaseBets() {
       const filteredBets = bets.filter(bet => bet.id !== id)
       setBets(filteredBets)
       localStorage.setItem('supabase_bets_backup_v2', JSON.stringify(filteredBets))
-      
+
       toast.success('Jugada eliminada')
       return true
     } catch (err) {
-      console.log('❌ Error eliminando jugada:', err)
       toast.error('Error inesperado eliminando jugada')
       return false
     }
-  }, [bets, testConnection])
+  }, [enabled, bets, testConnection])
 
   // Marcar ganadores según número ganador
   const markWinners = useCallback(async (lotteryId: string, winningAnimalNumber: string): Promise<boolean> => {
+    if (!enabled) return false
+
     try {
       // Encontrar jugadas ganadoras
-      const winningBets = bets.filter(bet => 
-        bet.lotteryId === lotteryId && 
+      const winningBets = bets.filter(bet =>
+        bet.lotteryId === lotteryId &&
         bet.animalNumber === winningAnimalNumber
       )
 
@@ -302,29 +301,47 @@ export function useSupabaseBets() {
       }
 
       if (allSuccess) {
-        console.log(`✅ ${winningBets.length} jugadas marcadas como ganadoras`)
         toast.success(`${winningBets.length} jugadas marcadas como ganadoras`)
       }
 
       return allSuccess
     } catch (err) {
-      console.log('❌ Error marcando ganadores:', err)
       toast.error('Error marcando jugadas ganadoras')
       return false
     }
-  }, [bets, updateBet])
-
-  // Cargar datos al inicializar
-  useEffect(() => {
-    loadBets()
-  }, [loadBets])
+  }, [enabled, bets, updateBet])
 
   // Función de debugging para probar manualmente
   const debugForceReload = useCallback(async () => {
-    console.log('🔧 DEBUG: Forzando recarga de jugadas...')
-    console.log('📊 Estado actual:', { betsCount: bets.length, isLoading, isConnected })
+    if (!enabled) return
     await loadBets()
-  }, [bets.length, isLoading, isConnected, loadBets])
+  }, [enabled, loadBets])
+
+  // Cargar datos al inicializar
+  useEffect(() => {
+    if (!enabled) {
+      setIsLoading(false)
+      return
+    }
+    loadBets()
+  }, [enabled, loadBets])
+
+  // Si el hook está deshabilitado, retornar valores por defecto
+  // IMPORTANTE: Este return debe estar DESPUÉS de todos los hooks
+  if (!enabled) {
+    return {
+      bets: [],
+      isLoading: false,
+      isConnected: false,
+      createBet: noopAsync,
+      updateBet: noopAsync,
+      deleteBet: noopAsync,
+      markWinners: noopAsync,
+      loadBets: noopAsyncVoid,
+      testConnection: noopAsync,
+      debugForceReload: noopAsyncVoid
+    }
+  }
 
   return {
     bets,

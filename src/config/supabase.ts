@@ -6,21 +6,23 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'http://localhost:9999'
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'public-anon-key'
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// Ensure single client instance per browser context to avoid GoTrue warnings
+const globalKey = '__supabase_client__'
+// Create with options once
+const _client = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    storageKey: 'sb-admin-config-auth-token',
   },
-  db: {
-    schema: 'public',
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
-    },
-  },
+  db: { schema: 'public' },
+  realtime: { params: { eventsPerSecond: 10 } },
 })
+// @ts-ignore
+export const supabase = (window as any)[globalKey] ?? _client
+// @ts-ignore
+;(window as any)[globalKey] = supabase
 
 export const isSupabaseConfigured = (): boolean => {
   return !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY)

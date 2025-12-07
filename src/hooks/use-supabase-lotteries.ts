@@ -113,10 +113,8 @@ export function useSupabaseLotteries() {
       }))
 
       setLotteries(transformedLotteries)
-      console.log(`✅ Cargadas ${transformedLotteries.length} loterías desde Supabase`)
 
     } catch (error: any) {
-      console.error('Error loading lotteries:', error)
       setError(error.message || 'Error al cargar loterías')
       toast.error('Error al cargar loterías desde Supabase')
 
@@ -149,8 +147,6 @@ export function useSupabaseLotteries() {
 
     try {
       // Verificar si ya existe una lotería con el mismo nombre
-      console.log(`🔍 Verificando nombre de lotería: ${lotteryData.name}`)
-
       const { data: existingLotteries, error: checkError } = await supabase
         .from('lotteries')
         .select('id, name')
@@ -162,14 +158,10 @@ export function useSupabaseLotteries() {
       }
 
       if (existingLotteries && existingLotteries.length > 0) {
-        const existing = existingLotteries[0]
-        console.log(`❌ Lotería con nombre "${lotteryData.name}" ya existe (ID: ${existing.id})`)
         toast.error(`Ya existe una lotería con el nombre: ${lotteryData.name}`)
         return false
       }
 
-      console.log(`✅ Nombre de lotería "${lotteryData.name}" disponible`)
-      console.log(`📝 Creando lotería en Supabase...`)
       // Primero crear la lotería en la tabla lotteries
       const { data: newLotteries, error: lotteryError } = await supabase
         .from('lotteries')
@@ -202,14 +194,9 @@ export function useSupabaseLotteries() {
           multiplier: prize.multiplier
         }))
 
-        const { error: prizesError } = await supabase
+        await supabase
           .from('prizes')
           .insert(lotteryPrizes)
-
-        if (prizesError) {
-          console.error('Error insertando premios:', prizesError)
-          // No fallar completamente, la lotería se creó
-        }
       }
 
       // Transformar al formato local
@@ -226,24 +213,19 @@ export function useSupabaseLotteries() {
       }
 
       setLotteries(current => [...current, createdLottery])
-      console.log(`✅ Lotería creada exitosamente: ${createdLottery.name}`)
       toast.success('Lotería creada exitosamente en Supabase')
       return true
 
     } catch (error: any) {
-      console.error('❌ Error creating lottery:', error)
-
       // Manejo específico de errores de duplicate key
       if (error.message.includes('duplicate key') ||
         error.message.includes('unique constraint') ||
         error.message.includes('lotteries_name_key')) {
-        console.log(`🚫 Duplicate lottery name detected: ${lotteryData.name}`)
         toast.error(`Ya existe una lotería con el nombre: ${lotteryData.name}`)
         return false
       }
 
       // Otros errores
-      console.log(`⚠️ Supabase error creating lottery: ${error.message}`)
       toast.error(`Error al crear lotería: ${error.message}`)
       return false
     }
@@ -296,13 +278,9 @@ export function useSupabaseLotteries() {
             multiplier: prize.multiplier
           }))
 
-          const { error: prizesError } = await supabase
+          await supabase
             .from('prizes')
             .insert(lotteryPrizes)
-
-          if (prizesError) {
-            console.error('Error actualizando premios:', prizesError)
-          }
         }
       }
 
@@ -317,7 +295,6 @@ export function useSupabaseLotteries() {
       return true
 
     } catch (error: any) {
-      console.error('Error updating lottery:', error)
       toast.error(`Error al actualizar lotería: ${error.message}`)
       return false
     }
@@ -352,7 +329,6 @@ export function useSupabaseLotteries() {
       return true
 
     } catch (error: any) {
-      console.error('Error deleting lottery:', error)
       toast.error(`Error al eliminar lotería: ${error.message}`)
       return false
     }

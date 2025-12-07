@@ -10,7 +10,12 @@ import type { ApiKey, ApiKeyPermission } from '@/lib/types'
 // Configuración de Supabase
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-const supabase = createClient(supabaseUrl, supabaseKey)
+// Ensure singleton supabase client to avoid multiple GoTrueClient warnings
+const globalKey = '__supabase_client__'
+// @ts-ignore
+const supabase = (window as any)[globalKey] ?? createClient(supabaseUrl, supabaseKey)
+// @ts-ignore
+;(window as any)[globalKey] = supabase
 
 // Tipos específicos para el hook
 interface ApiKeyStats {
@@ -530,24 +535,6 @@ export function useSupabaseApiKeys(): UseSupabaseApiKeysReturn {
   // Cargar datos al montar el componente
   useEffect(() => {
     loadApiKeys()
-    
-    // Sincronización automática cada 30 segundos si hay conexión
-    const syncInterval = setInterval(() => {
-      syncWithSupabase()
-    }, 30000)
-
-    // Sincronizar cuando la ventana vuelve a tener foco
-    const handleFocus = () => {
-      console.log('👀 Ventana enfocada, sincronizando...')
-      syncWithSupabase()
-    }
-
-    window.addEventListener('focus', handleFocus)
-
-    return () => {
-      clearInterval(syncInterval)
-      window.removeEventListener('focus', handleFocus)
-    }
   }, [])
 
   return {

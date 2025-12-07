@@ -53,22 +53,19 @@ export function useSupabaseWithdrawals() {
         setIsConnected(false)
         return false
       }
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('withdrawals')
         .select('id')
         .limit(1)
 
       if (error) {
-        console.log('❌ Error conexión withdrawals:', error.message)
         setIsConnected(false)
         return false
       }
 
-      console.log('✅ Conexión withdrawals OK')
       setIsConnected(true)
       return true
     } catch (err) {
-      console.log('💥 Error test conexión:', err)
       setIsConnected(false)
       return false
     }
@@ -78,7 +75,7 @@ export function useSupabaseWithdrawals() {
   const loadWithdrawals = useCallback(async (filters?: WithdrawalFilters) => {
     try {
       setIsLoading(true)
-      
+
       if (!await testConnection()) {
         // Cargar desde localStorage como fallback
         const localWithdrawals = JSON.parse(localStorage.getItem('supabase_withdrawals_backup_v2') || '[]')
@@ -114,7 +111,6 @@ export function useSupabaseWithdrawals() {
       const { data: supabaseWithdrawals, error } = await query
 
       if (error) {
-        console.log('❌ Error cargando retiros:', error.message)
         const localWithdrawals = JSON.parse(localStorage.getItem('supabase_withdrawals_backup_v2') || '[]')
         setWithdrawals(localWithdrawals)
         calculateStats(localWithdrawals)
@@ -125,12 +121,10 @@ export function useSupabaseWithdrawals() {
       setWithdrawals(mappedWithdrawals)
       localStorage.setItem('supabase_withdrawals_backup_v2', JSON.stringify(mappedWithdrawals))
       calculateStats(mappedWithdrawals)
-      
-      console.log(`✅ ${mappedWithdrawals.length} retiros cargados`)
+
       return mappedWithdrawals
 
     } catch (err) {
-      console.log('💥 Error cargando retiros:', err)
       const localWithdrawals = JSON.parse(localStorage.getItem('supabase_withdrawals_backup_v2') || '[]')
       setWithdrawals(localWithdrawals)
       calculateStats(localWithdrawals)
@@ -157,16 +151,13 @@ export function useSupabaseWithdrawals() {
 
   // Crear retiro
   const createWithdrawal = useCallback(async (
-    fromPot: Pot, 
-    amount: number, 
+    fromPot: Pot,
+    amount: number,
     updatePotBalance?: (potName: string, newBalance: number) => Promise<void>
   ): Promise<boolean> => {
     try {
-      console.log(`💸 Creando retiro: Bs. ${amount} de ${fromPot.name}`)
-
       // Validar balance suficiente
       if (fromPot.balance < amount) {
-        console.log(`❌ Balance insuficiente: ${fromPot.balance} < ${amount}`)
         toast.error('Balance insuficiente para el retiro')
         return false
       }
@@ -176,14 +167,12 @@ export function useSupabaseWithdrawals() {
       let supabaseSuccess = false
 
       if (connectionOK) {
-        console.log('🔗 Registrando retiro en Supabase...')
-        
         const withdrawalData = {
           from_pot: fromPot.name,
           amount: amount,
           created_at: new Date().toISOString()
         }
-        
+
         const { data: createdWithdrawal, error } = await supabase
           .from('withdrawals')
           .insert(withdrawalData)
@@ -191,13 +180,11 @@ export function useSupabaseWithdrawals() {
           .single()
 
         if (error) {
-          console.log('❌ Error creando retiro:', error.message)
           toast.error(`Error: ${error.message}`)
           return false
         } else {
           withdrawalId = createdWithdrawal.id
           supabaseSuccess = true
-          console.log('✅ Retiro registrado en Supabase:', withdrawalId)
         }
       }
 
@@ -205,7 +192,6 @@ export function useSupabaseWithdrawals() {
       if (updatePotBalance) {
         const newBalance = fromPot.balance - amount
         await updatePotBalance(fromPot.name, newBalance)
-        console.log(`📊 Balance actualizado: ${fromPot.name} = Bs. ${newBalance}`)
       }
 
       // Agregar retiro a la lista local
@@ -226,11 +212,10 @@ export function useSupabaseWithdrawals() {
       } else {
         toast.warning('Retiro guardado localmente (sin conexión)')
       }
-      
+
       return true
 
     } catch (err) {
-      console.log('💥 Error creando retiro:', err)
       toast.error('Error al realizar retiro')
       return false
     }
@@ -239,10 +224,8 @@ export function useSupabaseWithdrawals() {
   // Eliminar retiro (solo para casos especiales)
   const deleteWithdrawal = useCallback(async (withdrawalId: string): Promise<boolean> => {
     try {
-      console.log(`🗑️ Eliminando retiro: ${withdrawalId}`)
-
       const connectionOK = await testConnection()
-      
+
       if (connectionOK) {
         const { error } = await supabase
           .from('withdrawals')
@@ -250,12 +233,9 @@ export function useSupabaseWithdrawals() {
           .eq('id', withdrawalId)
 
         if (error) {
-          console.log('❌ Error eliminando retiro:', error.message)
           toast.error(`Error: ${error.message}`)
           return false
         }
-
-        console.log('✅ Retiro eliminado de Supabase')
       }
 
       // Actualizar lista local
@@ -268,7 +248,6 @@ export function useSupabaseWithdrawals() {
       return true
 
     } catch (err) {
-      console.log('💥 Error eliminando retiro:', err)
       toast.error('Error al eliminar retiro')
       return false
     }
@@ -291,23 +270,19 @@ export function useSupabaseWithdrawals() {
   const syncOfflineWithdrawals = useCallback(async () => {
     try {
       const offlineQueue = JSON.parse(localStorage.getItem('withdrawals_offline_queue') || '[]')
-      
+
       if (offlineQueue.length === 0) {
-        console.log('📭 No hay retiros offline para sincronizar')
         return true
       }
 
       const connectionOK = await testConnection()
       if (!connectionOK) {
-        console.log('❌ Sin conexión para sincronizar')
         return false
       }
 
-      console.log(`🔄 Sincronizando ${offlineQueue.length} retiros offline...`)
-
       for (const item of offlineQueue) {
         if (item.type === 'withdrawal') {
-          const { data, error } = await supabase
+          await supabase
             .from('withdrawals')
             .insert({
               from_pot: item.data.from_pot,
@@ -316,26 +291,19 @@ export function useSupabaseWithdrawals() {
             })
             .select()
             .single()
-
-          if (error) {
-            console.log('❌ Error sincronizando retiro:', error.message)
-          } else {
-            console.log('✅ Retiro sincronizado:', data.id)
-          }
         }
       }
 
       // Limpiar cola después de sincronizar
       localStorage.removeItem('withdrawals_offline_queue')
-      
+
       // Recargar datos actualizados
       await loadWithdrawals()
-      
+
       toast.success('Retiros sincronizados exitosamente')
       return true
 
     } catch (err) {
-      console.log('💥 Error sincronizando retiros offline:', err)
       return false
     }
   }, [testConnection, loadWithdrawals])
@@ -351,13 +319,13 @@ export function useSupabaseWithdrawals() {
     isLoading,
     isConnected,
     withdrawalStats,
-    
+
     // Funciones principales
     loadWithdrawals,
     createWithdrawal,
     deleteWithdrawal,
     testConnection,
-    
+
     // Utilidades
     getWithdrawalsByPot,
     getWithdrawalsByDateRange,

@@ -37,7 +37,8 @@ export function useSupabaseTaquillaSales() {
 
       setSales(mappedSales)
     } catch (error) {
-      console.error('Error loading sales:', error)
+      // Error loading sales - table may not exist
+      setSales([])
     } finally {
       setIsLoading(false)
     }
@@ -61,7 +62,6 @@ export function useSupabaseTaquillaSales() {
       await loadSales()
       return true
     } catch (error) {
-      console.error('Error creating sale:', error)
       return false
     }
   }
@@ -78,7 +78,6 @@ export function useSupabaseTaquillaSales() {
       await loadSales()
       return true
     } catch (error) {
-      console.error('Error deleting sale:', error)
       return false
     }
   }

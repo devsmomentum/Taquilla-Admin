@@ -1,14 +1,10 @@
 /**
- * 🔑 HOOK PARA GESTIÓN DE API KEYS CON SUPABASE + LOCALSTORAGE MEJORADO
- * Módulo 10: Integración completa con fallback robusto y manejo de autenticación
+ * Hook para gestión de API Keys con Supabase + localStorage
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { ApiKey, ApiKeyPermission } from '@/lib/types'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-
-// Cliente Supabase compartido con fallback seguro
-// Nota: en desarrollo usa valores inofensivos si faltan las env vars
 
 // Tipos específicos para el hook
 interface ApiKeyStats {
@@ -27,13 +23,13 @@ interface UseSupabaseApiKeysReturn {
   isLoading: boolean
   error: string | null
   stats: ApiKeyStats | null
-  
+
   // CRUD Operations
   createApiKey: (apiKeyData: Omit<ApiKey, 'id' | 'createdAt' | 'key'>) => Promise<{ key: string; success: boolean }>
   updateApiKey: (id: string, updates: Partial<ApiKey>) => Promise<boolean>
   deleteApiKey: (id: string) => Promise<boolean>
   revokeApiKey: (id: string) => Promise<boolean>
-  
+
   // Utilities
   verifyApiKey: (keyHash: string) => Promise<{ isValid: boolean; permissions: ApiKeyPermission[]; keyInfo?: any }>
   generateSecureApiKey: () => string
@@ -42,31 +38,40 @@ interface UseSupabaseApiKeysReturn {
   syncWithSupabase: () => Promise<void>
 }
 
+// Funciones stub para cuando el hook está deshabilitado
+const noopCreateApiKey = async () => ({ key: '', success: false })
+const noopAsync = async () => false
+const noopAsyncVoid = async () => {}
+const noopVerifyApiKey = async () => ({ isValid: false, permissions: [] as ApiKeyPermission[] })
+const noopGenerateKey = () => 'sk_disabled'
+
 /**
  * Hook para gestionar API Keys con integración Supabase + localStorage fallback
  */
-export function useSupabaseApiKeys(): UseSupabaseApiKeysReturn {
+export function useSupabaseApiKeys(enabled: boolean = true): UseSupabaseApiKeysReturn {
+  // TODOS los hooks deben declararse antes de cualquier return condicional
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState<ApiKeyStats | null>(null)
 
   // Función para generar API Key segura
-  const generateSecureApiKey = (): string => {
+  const generateSecureApiKey = useCallback((): string => {
+    if (!enabled) return 'sk_disabled'
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
     let key = "sk_"
-    
+
     // Agregar timestamp para unicidad
     const timestamp = Date.now().toString(36)
     key += timestamp.slice(-4) + "_"
-    
+
     // Generar 40 caracteres aleatorios adicionales
     for (let i = 0; i < 40; i++) {
       key += chars.charAt(Math.floor(Math.random() * chars.length))
     }
-    
+
     return key
-  }
+  }, [enabled])
 
   // Función para crear hash SHA-256 de la API key
   const createKeyHash = async (apiKey: string): Promise<string> => {
@@ -87,9 +92,8 @@ export function useSupabaseApiKeys(): UseSupabaseApiKeysReturn {
     try {
       localStorage.setItem('apiKeys', JSON.stringify(keys))
       localStorage.setItem('apiKeys_lastSync', new Date().toISOString())
-      console.log('💾 API Keys guardadas en localStorage')
     } catch (err) {
-      console.error('❌ Error guardando en localStorage:', err)
+      // Error guardando en localStorage
     }
   }
 
@@ -102,13 +106,14 @@ export function useSupabaseApiKeys(): UseSupabaseApiKeysReturn {
         return Array.isArray(parsedKeys) ? parsedKeys : []
       }
     } catch (err) {
-      console.error('❌ Error cargando desde localStorage:', err)
+      // Error cargando desde localStorage
     }
     return []
   }
 
   // Test connection to Supabase
-  const testConnection = async (): Promise<boolean> => {
+  const testConnection = useCallback(async (): Promise<boolean> => {
+    if (!enabled) return false
     try {
       if (!isSupabaseConfigured()) {
         return false
@@ -117,16 +122,16 @@ export function useSupabaseApiKeys(): UseSupabaseApiKeysReturn {
         .from('api_keys')
         .select('count')
         .limit(1)
-      
+
       return !error
     } catch (err) {
-      console.warn('Supabase no disponible, usando localStorage:', err)
       return false
     }
-  }
+  }, [enabled])
 
   // Cargar estadísticas
-  const loadStats = async (): Promise<void> => {
+  const loadStats = useCallback(async (): Promise<void> => {
+    if (!enabled) return
     try {
       const { data, error } = await supabase
         .from('api_keys_stats')
@@ -146,21 +151,24 @@ export function useSupabaseApiKeys(): UseSupabaseApiKeysReturn {
         })
       }
     } catch (err) {
-      console.warn('No se pudieron cargar las estadísticas:', err)
+      // No se pudieron cargar las estadísticas
     }
-  }
+  }, [enabled])
 
   // Cargar API Keys desde Supabase o localStorage
-  const loadApiKeys = async (): Promise<void> => {
+  const loadApiKeys = useCallback(async (): Promise<void> => {
+    if (!enabled) {
+      setIsLoading(false)
+      return
+    }
+
     setIsLoading(true)
     setError(null)
 
     try {
       const isConnected = await testConnection()
-      
+
       if (isConnected) {
-        console.log('🔑 Cargando API Keys desde Supabase...')
-        
         const { data, error: supabaseError } = await supabase
           .from('api_keys')
           .select(`
@@ -195,44 +203,38 @@ export function useSupabaseApiKeys(): UseSupabaseApiKeysReturn {
         }))
 
         setApiKeys(transformedKeys)
-        
+
         // Guardar en localStorage como respaldo
         saveToLocalStorage(transformedKeys)
-        
+
         // Cargar estadísticas si están disponibles
         await loadStats()
-        
-        console.log(`✅ ${transformedKeys.length} API Keys cargadas desde Supabase`)
       } else {
         // Fallback a localStorage
-        console.log('📱 Usando localStorage para API Keys...')
         const localKeys = loadFromLocalStorage()
         setApiKeys(localKeys)
-        console.log(`✅ ${localKeys.length} API Keys cargadas desde localStorage`)
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      console.error('❌ Error cargando API Keys:', errorMessage)
       setError(errorMessage)
-      
+
       // Fallback a localStorage en caso de error
       const localKeys = loadFromLocalStorage()
       setApiKeys(localKeys)
-      if (localKeys.length > 0) {
-        console.log('🔄 Datos cargados desde localStorage como respaldo')
-      }
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [enabled, testConnection, loadStats])
 
   // Crear nueva API Key
-  const createApiKey = async (apiKeyData: Omit<ApiKey, 'id' | 'createdAt' | 'key'>): Promise<{ key: string; success: boolean }> => {
+  const createApiKey = useCallback(async (apiKeyData: Omit<ApiKey, 'id' | 'createdAt' | 'key'>): Promise<{ key: string; success: boolean }> => {
+    if (!enabled) return { key: '', success: false }
+
     try {
       const newKey = generateSecureApiKey()
       const keyHash = await createKeyHash(newKey)
       const keyPrefix = getKeyPrefix(newKey)
-      
+
       const newApiKey: ApiKey = {
         id: crypto.randomUUID(),
         key: newKey,
@@ -242,12 +244,9 @@ export function useSupabaseApiKeys(): UseSupabaseApiKeysReturn {
 
       let supabaseSuccess = false
       const isConnected = await testConnection()
-      
+
       // Intentar guardar en Supabase si hay conexión y created_by válido
       if (isConnected && apiKeyData.createdBy) {
-        console.log('💾 Intentando crear API Key en Supabase...')
-        console.log('   Usuario creador:', apiKeyData.createdBy)
-        
         const { error } = await supabase
           .from('api_keys')
           .insert({
@@ -261,19 +260,8 @@ export function useSupabaseApiKeys(): UseSupabaseApiKeysReturn {
             created_by: apiKeyData.createdBy
           })
 
-        if (error) {
-          console.warn(`⚠️ Error guardando en Supabase: ${error.message}`)
-          console.log('   Detalles:', error)
-          console.log('🔄 Continuando con localStorage...')
-        } else {
-          console.log('✅ API Key creada exitosamente en Supabase')
+        if (!error) {
           supabaseSuccess = true
-        }
-      } else {
-        if (!isConnected) {
-          console.log('📱 Supabase no disponible, guardando en localStorage...')
-        } else {
-          console.log('⚠️ No hay createdBy, guardando solo en localStorage')
         }
       }
 
@@ -281,21 +269,17 @@ export function useSupabaseApiKeys(): UseSupabaseApiKeysReturn {
       const updatedKeys = [newApiKey, ...apiKeys]
       setApiKeys(updatedKeys)
       saveToLocalStorage(updatedKeys)
-      
-      console.log(`✅ API Key "${apiKeyData.name}" creada exitosamente`)
-      console.log(`🔑 Clave generada: ${newKey}`)
-      
+
       // Solo recargar si guardó exitosamente en Supabase
       if (supabaseSuccess) {
         await loadApiKeys()
       }
-      
+
       return { key: newKey, success: true }
-      
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error creando API Key'
-      console.error('❌ Error:', errorMessage)
-      
+
       // Intentar guardar al menos localmente
       try {
         const newKey = generateSecureApiKey()
@@ -305,30 +289,28 @@ export function useSupabaseApiKeys(): UseSupabaseApiKeysReturn {
           createdAt: new Date().toISOString(),
           ...apiKeyData
         }
-        
+
         const updatedKeys = [newApiKey, ...apiKeys]
         setApiKeys(updatedKeys)
         saveToLocalStorage(updatedKeys)
-        
-        console.log('🔄 API Key guardada solo localmente')
+
         return { key: newKey, success: true }
       } catch (localErr) {
-        console.error('❌ Error también guardando localmente:', localErr)
         setError(errorMessage)
         return { key: '', success: false }
       }
     }
-  }
+  }, [enabled, apiKeys, generateSecureApiKey, testConnection, loadApiKeys])
 
   // Actualizar API Key
-  const updateApiKey = async (id: string, updates: Partial<ApiKey>): Promise<boolean> => {
+  const updateApiKey = useCallback(async (id: string, updates: Partial<ApiKey>): Promise<boolean> => {
+    if (!enabled) return false
+
     try {
       const isConnected = await testConnection()
       let supabaseSuccess = false
-      
+
       if (isConnected) {
-        console.log('🔄 Actualizando API Key en Supabase...')
-        
         // Preparar datos para Supabase
         const supabaseUpdates: any = {}
         if (updates.name !== undefined) supabaseUpdates.name = updates.name
@@ -341,110 +323,90 @@ export function useSupabaseApiKeys(): UseSupabaseApiKeysReturn {
           .update(supabaseUpdates)
           .eq('id', id)
 
-        if (error) {
-          console.warn(`⚠️ Error actualizando en Supabase: ${error.message}`)
-          console.log('   Detalles:', error)
-          console.log('🔄 Continuando con actualización local...')
-        } else {
-          console.log('✅ API Key actualizada exitosamente en Supabase')
+        if (!error) {
           supabaseSuccess = true
         }
       }
 
       // Siempre actualizar estado local
-      const updatedKeys = apiKeys.map(key => 
+      const updatedKeys = apiKeys.map(key =>
         key.id === id ? { ...key, ...updates } : key
       )
       setApiKeys(updatedKeys)
       saveToLocalStorage(updatedKeys)
-      
+
       // Solo recargar si actualizó exitosamente en Supabase
       if (supabaseSuccess) {
         await loadApiKeys()
       }
-      
+
       return true
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error actualizando API Key'
-      console.error('❌ Error:', errorMessage)
-      
+
       // Intentar actualizar al menos localmente
       try {
-        const updatedKeys = apiKeys.map(key => 
+        const updatedKeys = apiKeys.map(key =>
           key.id === id ? { ...key, ...updates } : key
         )
         setApiKeys(updatedKeys)
         saveToLocalStorage(updatedKeys)
-        console.log('🔄 API Key actualizada solo localmente')
         return true
       } catch (localErr) {
-        console.error('❌ Error también actualizando localmente:', localErr)
         setError(errorMessage)
         return false
       }
     }
-  }
+  }, [enabled, apiKeys, testConnection, loadApiKeys])
 
   // Eliminar API Key
-  const deleteApiKey = async (id: string): Promise<boolean> => {
+  const deleteApiKey = useCallback(async (id: string): Promise<boolean> => {
+    if (!enabled) return false
+
     try {
       const isConnected = await testConnection()
-      let supabaseSuccess = false
-      
+
       if (isConnected) {
-        console.log('🗑️ Eliminando API Key de Supabase...')
-        
-        const { error } = await supabase
+        await supabase
           .from('api_keys')
           .delete()
           .eq('id', id)
-
-        if (error) {
-          console.warn(`⚠️ Error eliminando de Supabase: ${error.message}`)
-          console.log('   Detalles:', error)
-          console.log('🔄 Continuando con eliminación local...')
-        } else {
-          console.log('✅ API Key eliminada exitosamente de Supabase')
-          supabaseSuccess = true
-        }
       }
 
       // Siempre actualizar estado local
       const updatedKeys = apiKeys.filter(key => key.id !== id)
       setApiKeys(updatedKeys)
       saveToLocalStorage(updatedKeys)
-      
-      console.log('✅ API Key eliminada correctamente')
+
       return true
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error eliminando API Key'
-      console.error('❌ Error:', errorMessage)
-      
+
       // Intentar eliminar al menos localmente
       try {
         const updatedKeys = apiKeys.filter(key => key.id !== id)
         setApiKeys(updatedKeys)
         saveToLocalStorage(updatedKeys)
-        console.log('🔄 API Key eliminada solo localmente')
         return true
       } catch (localErr) {
-        console.error('❌ Error también eliminando localmente:', localErr)
         setError(errorMessage)
         return false
       }
     }
-  }
+  }, [enabled, apiKeys, testConnection])
 
   // Revocar API Key (desactivar)
-  const revokeApiKey = async (id: string): Promise<boolean> => {
+  const revokeApiKey = useCallback(async (id: string): Promise<boolean> => {
     return await updateApiKey(id, { isActive: false })
-  }
+  }, [updateApiKey])
 
   // Verificar API Key
-  const verifyApiKey = async (keyHash: string): Promise<{ isValid: boolean; permissions: ApiKeyPermission[]; keyInfo?: any }> => {
+  const verifyApiKey = useCallback(async (keyHash: string): Promise<{ isValid: boolean; permissions: ApiKeyPermission[]; keyInfo?: any }> => {
+    if (!enabled) return { isValid: false, permissions: [] }
+
     try {
       const isConnected = await testConnection()
-      
+
       if (isConnected) {
         const { data, error } = await supabase
           .rpc('verify_api_key', { api_key_hash: keyHash })
@@ -474,54 +436,60 @@ export function useSupabaseApiKeys(): UseSupabaseApiKeysReturn {
       }
 
       return { isValid: false, permissions: [] }
-      
+
     } catch (err) {
-      console.error('❌ Error verificando API Key:', err)
       return { isValid: false, permissions: [] }
     }
-  }
+  }, [enabled, apiKeys, testConnection])
 
   // Refresh manual de los datos
-  const refreshApiKeys = async (): Promise<void> => {
+  const refreshApiKeys = useCallback(async (): Promise<void> => {
     await loadApiKeys()
-  }
+  }, [loadApiKeys])
 
   // Función de sincronización automática
-  const syncWithSupabase = async (): Promise<void> => {
+  const syncWithSupabase = useCallback(async (): Promise<void> => {
+    if (!enabled) return
     try {
       const isConnected = await testConnection()
-      
+
       if (isConnected) {
-        console.log('🔄 Sincronizando con Supabase...')
         await loadApiKeys()
       }
     } catch (err) {
-      console.warn('⚠️ Error en sincronización automática:', err)
+      // Error en sincronización automática
     }
-  }
+  }, [enabled, testConnection, loadApiKeys])
 
   // Cargar datos al montar el componente
   useEffect(() => {
+    if (!enabled) {
+      setIsLoading(false)
+      return
+    }
+
     loadApiKeys()
-    
-    // Sincronización automática cada 30 segundos si hay conexión
-    const syncInterval = setInterval(() => {
-      syncWithSupabase()
-    }, 30000)
+  }, [enabled, loadApiKeys])
 
-    // Sincronizar cuando la ventana vuelve a tener foco
-    const handleFocus = () => {
-      console.log('👀 Ventana enfocada, sincronizando...')
-      syncWithSupabase()
+  // Si el hook está deshabilitado, retornar valores por defecto
+  // IMPORTANTE: Este return debe estar DESPUÉS de todos los hooks
+  if (!enabled) {
+    return {
+      apiKeys: [],
+      isLoading: false,
+      error: null,
+      stats: null,
+      createApiKey: noopCreateApiKey,
+      updateApiKey: noopAsync,
+      deleteApiKey: noopAsync,
+      revokeApiKey: noopAsync,
+      verifyApiKey: noopVerifyApiKey,
+      generateSecureApiKey: noopGenerateKey,
+      refreshApiKeys: noopAsyncVoid,
+      testConnection: noopAsync,
+      syncWithSupabase: noopAsyncVoid
     }
-
-    window.addEventListener('focus', handleFocus)
-
-    return () => {
-      clearInterval(syncInterval)
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [])
+  }
 
   return {
     apiKeys,

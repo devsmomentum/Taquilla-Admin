@@ -6,7 +6,21 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'http://localhost:9999'
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'public-anon-key'
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Ensure single client instance per browser context to avoid GoTrue warnings
+const globalKey = '__supabase_client__'
+// @ts-ignore
+export const supabase = (window as any)[globalKey] ?? createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storageKey: 'sb-admin-lib-auth-token',
+    // Deshabilitar auto-refresh cuando la ventana recupera el foco
+    // para evitar recargas innecesarias de datos
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false
+  }
+})
+// @ts-ignore
+;(window as any)[globalKey] = supabase
 
 // Accurate check whether the project is configured with real keys
 export const isSupabaseConfigured = (): boolean => {

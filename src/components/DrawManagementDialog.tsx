@@ -34,14 +34,6 @@ export function DrawManagementDialog({
 }: DrawManagementDialogProps) {
     const [isSubmitting, setIsSubmitting] = useState(false)
 
-    // Debug: Log cuando cambien las loterías
-    useEffect(() => {
-        console.log('📊 DrawManagementDialog - Loterías recibidas:', lotteries.length)
-        if (lotteries.length > 0) {
-            console.log('Primera lotería:', lotteries[0])
-        }
-    }, [lotteries])
-
     // Estados del formulario
     const [formData, setFormData] = useState<DrawFormData>({
         lotteryId: '',
@@ -253,12 +245,10 @@ export function DrawManagementDialog({
     // Manejar envío del formulario
     const handleSubmit = async () => {
         if (!isFormValid()) {
-            console.log('❌ Formulario inválido:', formData)
             toast.error('Por favor completa todos los campos requeridos')
             return
         }
 
-        console.log('✅ Formulario válido, enviando:', formData)
         setIsSubmitting(true)
         try {
             const success = await onSave(formData)
@@ -268,7 +258,6 @@ export function DrawManagementDialog({
                 toast.error('Error al crear el sorteo')
             }
         } catch (error) {
-            console.error('Error saving draw:', error)
             toast.error(`Error al guardar el sorteo: ${error instanceof Error ? error.message : 'Error desconocido'}`)
         } finally {
             setIsSubmitting(false)

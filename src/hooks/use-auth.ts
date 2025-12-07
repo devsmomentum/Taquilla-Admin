@@ -1,11 +1,10 @@
-import { useKV } from "@github/spark/hooks"
 import { User, Role, ModulePermission } from "@/lib/types"
 import { useEffect, useState } from "react"
 
 export function useAuth() {
-  const [roles] = useKV<Role[]>("roles", [])
-  const [users] = useKV<User[]>("users", [])
-  const [currentUserId] = useKV<string>("currentUserId", "")
+  const [roles, setRoles] = useState<Role[]>([])
+  const [users, setUsers] = useState<User[]>([])
+  const [currentUserId, setCurrentUserId] = useState<string>("")
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [userPermissions, setUserPermissions] = useState<ModulePermission[]>([])
 

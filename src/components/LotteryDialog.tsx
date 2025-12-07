@@ -68,10 +68,10 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
         setPlaysTomorrow(lottery.playsTomorrow)
 
         setAnimalsX30(
-          lottery.prizes.filter(p => p.multiplier === 30).map(p => p.animalNumber)
+          (lottery.prizes ?? []).filter(p => p.multiplier === 30).map(p => p.animalNumber)
         )
         setAnimalsX40(
-          lottery.prizes.filter(p => p.multiplier === 40).map(p => p.animalNumber)
+          (lottery.prizes ?? []).filter(p => p.multiplier === 40).map(p => p.animalNumber)
         )
 
         // Determinar si es nombre custom
