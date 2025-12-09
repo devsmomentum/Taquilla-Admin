@@ -27,7 +27,8 @@ import {
   Funnel,
   SpinnerGap,
   CaretLeft,
-  CaretRight
+  CaretRight,
+  ArrowsClockwise
 } from '@phosphor-icons/react'
 import { Winner } from '@/hooks/use-winners'
 
@@ -181,6 +182,16 @@ export function WinnersPage() {
             Administra y controla los premios de las jugadas ganadoras
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => loadWinners()}
+          disabled={winnersLoading}
+          className="gap-2"
+        >
+          <ArrowsClockwise className={`h-4 w-4 ${winnersLoading ? 'animate-spin' : ''}`} />
+          Actualizar
+        </Button>
       </div>
 
       {/* Estadísticas */}
