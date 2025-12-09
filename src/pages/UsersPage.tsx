@@ -32,9 +32,10 @@ export function UsersPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
 
   // Solo mostrar usuarios con userType 'admin' o sin userType (para compatibilidad)
+  // Excluir al usuario logueado de la lista
   const adminUsers = useMemo(() =>
-    users.filter(u => !u.userType || u.userType === 'admin'),
-    [users]
+    users.filter(u => (!u.userType || u.userType === 'admin') && u.id !== currentUserId),
+    [users, currentUserId]
   )
 
   const filteredUsers = useMemo(() => {

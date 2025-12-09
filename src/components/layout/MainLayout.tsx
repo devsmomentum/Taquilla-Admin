@@ -1,6 +1,8 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Toaster } from '@/components/ui/sonner'
 import { useApp } from '@/contexts/AppContext'
 import { useState } from 'react'
@@ -17,7 +19,8 @@ import {
   ShieldCheck,
   Key,
   Buildings,
-  SignOut
+  SignOut,
+  UserCircle
 } from '@phosphor-icons/react'
 
 const navItems = [
@@ -34,8 +37,14 @@ const navItems = [
 ]
 
 export function MainLayout() {
-  const { currentUser, logout, canViewModule } = useApp()
+  const { currentUser, logout, canViewModule, updateUser } = useApp()
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false)
+  const [profileName, setProfileName] = useState('')
+  const [profileEmail, setProfileEmail] = useState('')
+  const [profilePassword, setProfilePassword] = useState('')
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [profileErrors, setProfileErrors] = useState<Record<string, string>>({})
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -47,6 +56,53 @@ export function MainLayout() {
     setLogoutDialogOpen(false)
     toast.success('Sesión cerrada exitosamente')
     navigate('/login')
+  }
+
+  const openProfileDialog = () => {
+    if (currentUser) {
+      setProfileName(currentUser.name || '')
+      setProfileEmail(currentUser.email || '')
+      setProfilePassword('')
+      setProfileErrors({})
+      setProfileDialogOpen(true)
+    }
+  }
+
+  const validateProfile = () => {
+    const errors: Record<string, string> = {}
+    if (!profileName.trim()) errors.name = 'El nombre es obligatorio'
+    if (!profileEmail.trim()) {
+      errors.email = 'El email es obligatorio'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileEmail)) {
+      errors.email = 'Email inválido'
+    }
+    if (profilePassword && profilePassword.length < 6) {
+      errors.password = 'La contraseña debe tener al menos 6 caracteres'
+    }
+    setProfileErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const handleSaveProfile = async () => {
+    if (!validateProfile() || !currentUser) return
+
+    setSavingProfile(true)
+    try {
+      const updates: any = {
+        name: profileName,
+        email: profileEmail
+      }
+      if (profilePassword) {
+        updates.password = profilePassword
+      }
+      await updateUser(currentUser.id, updates)
+      toast.success('Perfil actualizado exitosamente')
+      setProfileDialogOpen(false)
+    } catch (error) {
+      toast.error('Error al actualizar el perfil')
+    } finally {
+      setSavingProfile(false)
+    }
   }
 
   const visibleNavItems = navItems.filter(item => canViewModule(item.permission))
@@ -67,24 +123,18 @@ export function MainLayout() {
                 Gestión de Loterías
               </h1>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium truncate max-w-[150px] md:max-w-none">
-                  {currentUser?.name}
-                </p>
-                <p className="text-xs text-slate-400 truncate max-w-[150px] md:max-w-none">
-                  {currentUser?.email}
-                </p>
+            <button
+              onClick={openProfileDialog}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+              title="Mi perfil"
+            >
+              <span className="text-sm font-medium text-slate-200 hidden sm:block max-w-[140px] truncate">
+                {currentUser?.name}
+              </span>
+              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center border border-slate-500">
+                <UserCircle className="h-5 w-5 text-slate-200" weight="fill" />
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleLogout}
-                className="text-slate-300 hover:text-white hover:bg-white/10 h-8 w-8"
-              >
-                <SignOut className="h-4 w-4" />
-              </Button>
-            </div>
+            </button>
           </div>
         </div>
       </header>
@@ -138,13 +188,95 @@ export function MainLayout() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setLogoutDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setLogoutDialogOpen(false)} className="cursor-pointer">
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={confirmLogout} className="gap-2">
+            <Button variant="destructive" onClick={confirmLogout} className="gap-2 cursor-pointer">
               <SignOut className="h-4 w-4" />
               Cerrar Sesión
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Profile Dialog */}
+      <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCircle className="h-5 w-5 text-primary" weight="fill" />
+              Mi Perfil
+            </DialogTitle>
+            <DialogDescription>
+              Actualiza tus datos personales. Deja la contraseña vacía para mantener la actual.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="profile-name">Nombre</Label>
+              <Input
+                id="profile-name"
+                value={profileName}
+                onChange={(e) => {
+                  setProfileName(e.target.value)
+                  if (profileErrors.name) setProfileErrors({ ...profileErrors, name: '' })
+                }}
+                placeholder="Tu nombre"
+                className={profileErrors.name ? 'border-destructive' : ''}
+                autoComplete="off"
+              />
+              {profileErrors.name && <p className="text-xs text-destructive">{profileErrors.name}</p>}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="profile-email">Email</Label>
+              <Input
+                id="profile-email"
+                type="email"
+                value={profileEmail}
+                onChange={(e) => {
+                  setProfileEmail(e.target.value)
+                  if (profileErrors.email) setProfileErrors({ ...profileErrors, email: '' })
+                }}
+                placeholder="tu@email.com"
+                className={profileErrors.email ? 'border-destructive' : ''}
+                autoComplete="off"
+              />
+              {profileErrors.email && <p className="text-xs text-destructive">{profileErrors.email}</p>}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="profile-password">Nueva Contraseña</Label>
+              <Input
+                id="profile-password"
+                type="password"
+                value={profilePassword}
+                onChange={(e) => {
+                  setProfilePassword(e.target.value)
+                  if (profileErrors.password) setProfileErrors({ ...profileErrors, password: '' })
+                }}
+                placeholder="Dejar vacío para mantener la actual"
+                className={profileErrors.password ? 'border-destructive' : ''}
+                autoComplete="new-password"
+              />
+              {profileErrors.password && <p className="text-xs text-destructive">{profileErrors.password}</p>}
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="destructive"
+              onClick={handleLogout}
+              className="gap-2 w-full sm:w-auto sm:mr-auto cursor-pointer"
+            >
+              <SignOut className="h-4 w-4" />
+              Cerrar Sesión
+            </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button variant="outline" onClick={() => setProfileDialogOpen(false)} disabled={savingProfile} className="flex-1 sm:flex-none cursor-pointer">
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveProfile} disabled={savingProfile} className="gap-2 flex-1 sm:flex-none cursor-pointer">
+                {savingProfile ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
