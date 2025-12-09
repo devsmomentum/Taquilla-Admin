@@ -80,6 +80,7 @@ interface AppContextType {
   // Lotteries
   lotteries: Lottery[]
   lotteriesLoading: boolean
+  loadLotteries: () => Promise<void>
   createLottery: any
   updateLottery: any
   deleteLottery: any
@@ -216,11 +217,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const {
     lotteries,
     isLoading: lotteriesLoading,
+    loadLotteries,
     createLottery,
     updateLottery,
     deleteLottery,
     toggleLotteryStatus
   } = useSupabaseLotteries()
+
+  // Wrapper para recargar loterías
+  const reloadLotteries = async () => {
+    await loadLotteries()
+  }
 
   // Draws
   const {
@@ -472,6 +479,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     lotteries: lotteries || [],
     lotteriesLoading,
+    loadLotteries: reloadLotteries,
     createLottery,
     updateLottery,
     deleteLottery,

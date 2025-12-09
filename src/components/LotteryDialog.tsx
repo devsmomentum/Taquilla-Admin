@@ -20,7 +20,7 @@ interface LotteryDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   lottery?: Lottery
-  onSave: (lottery: Lottery) => void
+  onSave: (lottery: Lottery) => Promise<void> | void
   onPlayTomorrowChange?: (lotteryId: string, newValue: boolean) => void
   existingLotteries?: Lottery[]
 }
@@ -48,12 +48,8 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
   const [drawTime, setDrawTime] = useState(lottery?.drawTime || "13:00")
   const [isActive, setIsActive] = useState(lottery?.isActive ?? true)
   const [playsTomorrow, setPlaysTomorrow] = useState(lottery?.playsTomorrow ?? true)
-  const [animalsX30, setAnimalsX30] = useState<string[]>(
-    lottery?.prizes.filter(p => p.multiplier === 30).map(p => p.animalNumber) || []
-  )
-  const [animalsX40, setAnimalsX40] = useState<string[]>(
-    lottery?.prizes.filter(p => p.multiplier === 40).map(p => p.animalNumber) || []
-  )
+  // Estado para multiplicadores: cada item tiene x30 por defecto, se marca si es x40
+  const [itemsWithX40, setItemsWithX40] = useState<Set<string>>(new Set())
 
   // Estados para límites de apuestas
   const [betLimits, setBetLimits] = useState<BetLimit[]>([])
@@ -61,6 +57,7 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
   const [hasGlobalLimit, setHasGlobalLimit] = useState(false)
   const [selectedAnimalForLimit, setSelectedAnimalForLimit] = useState<string>('')
   const [animalLimitAmount, setAnimalLimitAmount] = useState<string>('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Sincronizar estado cuando cambia la lotería seleccionada o se abre el diálogo
   useEffect(() => {
@@ -79,12 +76,10 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
         setIsActive(lottery.isActive)
         setPlaysTomorrow(lottery.playsTomorrow)
 
-        setAnimalsX30(
-          (lottery.prizes ?? []).filter(p => p.multiplier === 30).map(p => p.animalNumber)
-        )
-        setAnimalsX40(
-          (lottery.prizes ?? []).filter(p => p.multiplier === 40).map(p => p.animalNumber)
-        )
+        // Cargar items con multiplicador x40
+        const prizes = lottery.prizes ?? []
+        const x40Items = new Set(prizes.filter(p => p.multiplier === 40).map(p => p.animalNumber))
+        setItemsWithX40(x40Items)
 
         // Determinar si es nombre custom
         const isCustom = currentUniqueNames.length > 0 && !currentUniqueNames.includes(lottery.name)
@@ -97,8 +92,7 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
         setDrawTime("13:00")
         setIsActive(true)
         setPlaysTomorrow(true)
-        setAnimalsX30([])
-        setAnimalsX40([])
+        setItemsWithX40(new Set())
         setIsCustomName(currentUniqueNames.length === 0)
 
         // Resetear límites
@@ -115,7 +109,7 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
     }
   }, [open, lottery])
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name || !openingTime || !closingTime || !drawTime) {
       toast.error("Por favor complete todos los campos")
       return
@@ -132,29 +126,19 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
       return
     }
 
-    // Crear premios para animales x30
-    const prizesX30: Prize[] = animalsX30.map((animalNumber) => {
-      const animal = ANIMALS.find(a => a.number === animalNumber)
+    // Crear premios para todos los items (40 items)
+    // Cada item tiene multiplicador x30 por defecto, o x40 si está marcado
+    const allPrizes: Prize[] = ANIMALS.map((animal) => {
+      const isX40 = itemsWithX40.has(animal.number)
+      // Mantener el ID existente si estamos editando
+      const existingPrize = lottery?.prizes?.find(p => p.animalNumber === animal.number)
       return {
-        id: `${Date.now()}-${animalNumber}-30`,
-        animalNumber,
-        multiplier: 30,
-        animalName: animal?.name || "",
+        id: existingPrize?.id || `${Date.now()}-${animal.number}`,
+        animalNumber: animal.number,
+        multiplier: isX40 ? 40 : 30,
+        animalName: animal.name,
       }
     })
-
-    // Crear premios para animales x40
-    const prizesX40: Prize[] = animalsX40.map((animalNumber) => {
-      const animal = ANIMALS.find(a => a.number === animalNumber)
-      return {
-        id: `${Date.now()}-${animalNumber}-40`,
-        animalNumber,
-        multiplier: 40,
-        animalName: animal?.name || "",
-      }
-    })
-
-    const allPrizes = [...prizesX30, ...prizesX40]
 
     const lotteryData: Lottery = {
       id: lottery?.id || Date.now().toString(),
@@ -168,43 +152,42 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
       createdAt: lottery?.createdAt || new Date().toISOString(),
     }
 
-    onSave(lotteryData)
-    /* close handled by parent */
-    toast.success(lottery ? "Lotería actualizada" : "Lotería creada")
+    setIsSubmitting(true)
+    try {
+      await onSave(lotteryData)
+      toast.success(lottery ? "Lotería actualizada" : "Lotería creada")
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.toString() || "Error desconocido"
+      console.error("Error al guardar lotería:", error)
+      toast.error(`${lottery ? "Error al actualizar" : "Error al crear"}: ${errorMessage}`)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const toggleAnimalX30 = (animalNumber: string) => {
-    setAnimalsX30(prev =>
-      prev.includes(animalNumber)
-        ? prev.filter(n => n !== animalNumber)
-        : [...prev, animalNumber]
-    )
+  // Toggle multiplicador para un item (x30 <-> x40)
+  const toggleMultiplier = (animalNumber: string) => {
+    setItemsWithX40(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(animalNumber)) {
+        newSet.delete(animalNumber)
+      } else {
+        newSet.add(animalNumber)
+      }
+      return newSet
+    })
   }
 
-  const toggleAnimalX40 = (animalNumber: string) => {
-    setAnimalsX40(prev =>
-      prev.includes(animalNumber)
-        ? prev.filter(n => n !== animalNumber)
-        : [...prev, animalNumber]
-    )
+  // Marcar todos como x40
+  const setAllX40 = () => {
+    setItemsWithX40(new Set(ANIMALS.map(a => a.number)))
+    toast.success("Todos los items marcados como x40")
   }
 
-  const selectAllX30 = () => {
-    setAnimalsX30(ANIMALS.map(a => a.number))
-    toast.success("Todos los animalitos seleccionados para x30")
-  }
-
-  const selectAllX40 = () => {
-    setAnimalsX40(ANIMALS.map(a => a.number))
-    toast.success("Todos los animalitos seleccionados para x40")
-  }
-
-  const clearAllX30 = () => {
-    setAnimalsX30([])
-  }
-
-  const clearAllX40 = () => {
-    setAnimalsX40([])
+  // Marcar todos como x30 (limpiar x40)
+  const setAllX30 = () => {
+    setItemsWithX40(new Set())
+    toast.success("Todos los items marcados como x30")
   }
 
   // Funciones para límites de apuestas
@@ -221,12 +204,12 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
     }))
 
     setBetLimits(limits)
-    toast.success('Límite global aplicado a todos los animalitos')
+    toast.success('Límite global aplicado a todos los items')
   }
 
   const handleAddAnimalLimit = () => {
     if (!selectedAnimalForLimit) {
-      toast.error('Seleccione un animalito')
+      toast.error('Seleccione un item')
       return
     }
 
@@ -409,71 +392,56 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
             />
           </div>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Animalitos con Multiplicador x30</Label>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={selectAllX30}>
-                    Todos
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={clearAllX30}>
-                    Ninguno
-                  </Button>
-                </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Configuración de Multiplicadores</Label>
+                <p className="text-xs text-muted-foreground">
+                  Todos los items están incluidos. Marque los que tendrán multiplicador x40 (el resto será x30)
+                </p>
               </div>
-              <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-3 border rounded-lg">
-                {ANIMALS.map((animal) => (
-                  <label
-                    key={animal.number}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-muted p-2 rounded"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={animalsX30.includes(animal.number)}
-                      onChange={() => toggleAnimalX30(animal.number)}
-                      className="rounded"
-                    />
-                    <span className="text-sm">{animal.number} - {animal.name}</span>
-                  </label>
-                ))}
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={setAllX30}>
+                  Todos x30
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={setAllX40}>
+                  Todos x40
+                </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {animalsX30.length} animalito{animalsX30.length !== 1 ? 's' : ''} seleccionado{animalsX30.length !== 1 ? 's' : ''}
-              </p>
             </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Animalitos con Multiplicador x40</Label>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={selectAllX40}>
-                    Todos
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={clearAllX40}>
-                    Ninguno
-                  </Button>
-                </div>
-              </div>
-              <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto p-3 border rounded-lg">
-                {ANIMALS.map((animal) => (
+            <div className="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto p-3 border rounded-lg">
+              {ANIMALS.map((animal) => {
+                const isX40 = itemsWithX40.has(animal.number)
+                return (
                   <label
                     key={animal.number}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-muted p-2 rounded"
+                    className={`flex items-center justify-between gap-2 p-2 rounded cursor-pointer transition-colors ${
+                      isX40
+                        ? 'bg-primary/10 hover:bg-primary/20 border border-primary/30'
+                        : 'hover:bg-muted'
+                    }`}
                   >
+                    <span className="text-sm">{animal.number} - {animal.name}</span>
+                    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
+                      isX40
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
+                      x{isX40 ? '40' : '30'}
+                    </span>
                     <input
                       type="checkbox"
-                      checked={animalsX40.includes(animal.number)}
-                      onChange={() => toggleAnimalX40(animal.number)}
-                      className="rounded"
+                      checked={isX40}
+                      onChange={() => toggleMultiplier(animal.number)}
+                      className="sr-only"
                     />
-                    <span className="text-sm">{animal.number} - {animal.name}</span>
                   </label>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {animalsX40.length} animalito{animalsX40.length !== 1 ? 's' : ''} seleccionado{animalsX40.length !== 1 ? 's' : ''}
-              </p>
+                )
+              })}
+            </div>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{ANIMALS.length - itemsWithX40.size} items con x30</span>
+              <span>{itemsWithX40.size} items con x40</span>
             </div>
           </div>
 
@@ -492,7 +460,7 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
                     checked={hasGlobalLimit}
                     onCheckedChange={setHasGlobalLimit}
                   />
-                  <Label htmlFor="global-limit" className="font-medium">Límite global para todos los animalitos</Label>
+                  <Label htmlFor="global-limit" className="font-medium">Límite global para todos los items</Label>
                 </div>
 
                 {hasGlobalLimit && (
@@ -519,16 +487,16 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
                 )}
               </div>
 
-              {/* Límite por Animalito */}
+              {/* Límite por Item */}
               <div className="space-y-2">
-                <Label className="font-medium">Límite por animalito específico</Label>
+                <Label className="font-medium">Límite por item específico</Label>
                 <div className="flex gap-2">
                   <Select
                     value={selectedAnimalForLimit}
                     onValueChange={setSelectedAnimalForLimit}
                   >
                     <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Selecciona un animalito" />
+                      <SelectValue placeholder="Selecciona un item" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[200px]">
                       {ANIMALS.map((animal) => (
@@ -604,10 +572,12 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} disabled={!isContentReady}>Guardar</Button>
+          <Button onClick={handleSave} disabled={!isContentReady || isSubmitting}>
+            {isSubmitting ? "Guardando..." : "Guardar"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -261,26 +261,26 @@ export function useSupabaseLotteries() {
         throw new Error('No se pudo actualizar la lotería en Supabase')
       }
 
-      // Actualizar premios si se proporcionaron
-      if (lotteryData.prizes !== undefined) {
-        // Primero eliminar premios existentes
-        await supabase
+      // Actualizar premios usando upsert (no elimina, solo actualiza multiplicadores)
+      if (lotteryData.prizes !== undefined && lotteryData.prizes.length > 0) {
+        // Preparar datos para upsert
+        const lotteryPrizes = lotteryData.prizes.map(prize => ({
+          lottery_id: lotteryId,
+          animal_number: prize.animalNumber,
+          animal_name: prize.animalName,
+          multiplier: prize.multiplier
+        }))
+
+        // Upsert: inserta si no existe, actualiza si existe (basado en lottery_id + animal_number)
+        const { error: upsertError } = await supabase
           .from('prizes')
-          .delete()
-          .eq('lottery_id', lotteryId)
+          .upsert(lotteryPrizes, {
+            onConflict: 'lottery_id,animal_number',
+            ignoreDuplicates: false
+          })
 
-        // Luego insertar nuevos premios
-        if (lotteryData.prizes.length > 0) {
-          const lotteryPrizes = lotteryData.prizes.map(prize => ({
-            lottery_id: lotteryId,
-            animal_number: prize.animalNumber,
-            animal_name: prize.animalName,
-            multiplier: prize.multiplier
-          }))
-
-          await supabase
-            .from('prizes')
-            .insert(lotteryPrizes)
+        if (upsertError) {
+          throw new Error(`Error al actualizar premios: ${upsertError.message}`)
         }
       }
 

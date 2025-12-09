@@ -15,7 +15,7 @@ import { Plus, Calendar, Pencil, Trash, MagnifyingGlass } from '@phosphor-icons/
 export function LotteriesPage() {
   const {
     lotteries,
-    bets,
+    loadLotteries,
     createLottery,
     updateLottery,
     deleteLottery
@@ -27,17 +27,28 @@ export function LotteriesPage() {
   const [lotteryToDelete, setLotteryToDelete] = useState<string | null>(null)
   const [lotterySearch, setLotterySearch] = useState('')
   const [lotteryFilters, setLotteryFilters] = useState<{ isActive?: boolean }>({})
+  const [isDeleting, setIsDeleting] = useState(false)
 
+  // Filtrar y ordenar alfabéticamente por nombre
   const filteredLotteries = filterLotteries(lotteries, lotterySearch, lotteryFilters)
+    .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }))
 
   const handleSaveLottery = async (lottery: Lottery) => {
     const exists = lotteries.find((l) => l.id === lottery.id)
 
+    let success: boolean
     if (exists) {
-      await updateLottery(lottery.id, lottery)
+      success = await updateLottery(lottery.id, lottery)
     } else {
-      await createLottery(lottery)
+      success = await createLottery(lottery)
     }
+
+    if (!success) {
+      throw new Error("No se pudo guardar la lotería. Revisa la consola para más detalles.")
+    }
+
+    // Recargar loterías para asegurar que los prizes estén actualizados
+    await loadLotteries()
 
     setEditingLottery(undefined)
     setLotteryDialogOpen(false)
@@ -56,6 +67,7 @@ export function LotteriesPage() {
   const confirmDeleteLottery = async () => {
     if (!lotteryToDelete) return
 
+    setIsDeleting(true)
     try {
       await deleteLottery(lotteryToDelete)
       toast.success('Lotería eliminada exitosamente')
@@ -63,6 +75,8 @@ export function LotteriesPage() {
       setLotteryToDelete(null)
     } catch (error) {
       toast.error('Error al eliminar lotería')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -135,68 +149,48 @@ export function LotteriesPage() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredLotteries.map((lottery) => {
-            const lotteryBets = bets.filter((b) => b.lotteryId === lottery.id)
-            const lotteryWinners = lotteryBets.filter((b) => b.isWinner)
-
-            return (
-              <Card key={lottery.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <CardTitle>{lottery.name}</CardTitle>
-                      <CardDescription className="space-y-0.5">
-                        <div>Abre: {lottery.openingTime}</div>
-                        <div>Cierra: {lottery.closingTime}</div>
-                        <div>Jugada: {lottery.drawTime}</div>
-                      </CardDescription>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEditLottery(lottery)}
-                      >
-                        <Pencil />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteLottery(lottery.id)}
-                      >
-                        <Trash />
-                      </Button>
-                    </div>
+          {filteredLotteries.map((lottery) => (
+            <Card key={lottery.id} className="hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <CardTitle>{lottery.name}</CardTitle>
+                    <CardDescription className="space-y-0.5">
+                      <div>Abre: {lottery.openingTime}</div>
+                      <div>Cierra: {lottery.closingTime}</div>
+                      <div>Jugada: {lottery.drawTime}</div>
+                    </CardDescription>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex gap-2">
-                    <Badge variant={lottery.isActive ? 'default' : 'secondary'}>
-                      {lottery.isActive ? 'Activa' : 'Inactiva'}
-                    </Badge>
-                    <Badge variant={lottery.playsTomorrow ? 'outline' : 'secondary'}>
-                      {lottery.playsTomorrow ? 'Juega Mañana' : 'No Juega'}
-                    </Badge>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEditLottery(lottery)}
+                    >
+                      <Pencil />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteLottery(lottery.id)}
+                    >
+                      <Trash />
+                    </Button>
                   </div>
-
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Premios:</span>
-                      <span className="font-medium">{lottery.prizes?.length ?? 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Jugadas:</span>
-                      <span className="font-medium">{lotteryBets.length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Ganadores:</span>
-                      <span className="font-medium">{lotteryWinners.length}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  <Badge variant={lottery.isActive ? 'default' : 'secondary'}>
+                    {lottery.isActive ? 'Activa' : 'Inactiva'}
+                  </Badge>
+                  <Badge variant={lottery.playsTomorrow ? 'outline' : 'secondary'}>
+                    {lottery.playsTomorrow ? 'Juega Mañana' : 'No Juega'}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
@@ -222,11 +216,11 @@ export function LotteriesPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setDeleteLotteryDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setDeleteLotteryDialogOpen(false)} disabled={isDeleting}>
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={confirmDeleteLottery}>
-              Eliminar
+            <Button variant="destructive" onClick={confirmDeleteLottery} disabled={isDeleting}>
+              {isDeleting ? 'Eliminando...' : 'Eliminar'}
             </Button>
           </DialogFooter>
         </DialogContent>
