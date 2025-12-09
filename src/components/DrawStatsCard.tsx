@@ -5,15 +5,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Bet, DrawResult, Lottery } from "@/lib/types"
+import { Bet, DailyResult, Lottery } from "@/lib/types"
 import { formatCurrency } from "@/lib/pot-utils"
-import { format } from "date-fns"
+import { format, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
 import { ChartBar } from "@phosphor-icons/react"
 
 interface DrawStatsCardProps {
   bets: Bet[]
-  draws: DrawResult[]
+  dailyResults: DailyResult[]
   lotteries: Lottery[]
 }
 
@@ -26,34 +26,39 @@ interface AnimalStats {
   betCount: number
 }
 
-export function DrawStatsCard({ bets, draws, lotteries }: DrawStatsCardProps) {
-  const [selectedDrawId, setSelectedDrawId] = useState<string>("")
+export function DrawStatsCard({ bets, dailyResults, lotteries }: DrawStatsCardProps) {
+  const [selectedResultId, setSelectedResultId] = useState<string>("")
 
-  const sortedDraws = useMemo(() => {
-    return [...draws].sort((a, b) => new Date(b.drawTime).getTime() - new Date(a.drawTime).getTime())
-  }, [draws])
+  const sortedResults = useMemo(() => {
+    return [...dailyResults].sort((a, b) => new Date(b.resultDate).getTime() - new Date(a.resultDate).getTime())
+  }, [dailyResults])
 
   const animalStats = useMemo<AnimalStats[]>(() => {
-    if (!selectedDrawId) return []
+    if (!selectedResultId) return []
 
-    const selectedDraw = draws.find((d) => d.id === selectedDrawId)
-    if (!selectedDraw) return []
+    const selectedResult = dailyResults.find((r) => r.id === selectedResultId)
+    if (!selectedResult) return []
 
-    const drawBets = bets.filter((bet) => {
+    const resultDate = parseISO(selectedResult.resultDate)
+    const dayStart = new Date(resultDate)
+    dayStart.setHours(0, 0, 0, 0)
+    const dayEnd = new Date(resultDate)
+    dayEnd.setHours(23, 59, 59, 999)
+
+    const dayBets = bets.filter((bet) => {
       const betDate = new Date(bet.timestamp)
-      const drawDate = new Date(selectedDraw.drawTime)
-      
       return (
-        bet.lotteryId === selectedDraw.lotteryId &&
-        betDate <= drawDate
+        bet.lotteryId === selectedResult.lotteryId &&
+        betDate >= dayStart &&
+        betDate <= dayEnd
       )
     })
 
-    const totalAmount = drawBets.reduce((sum, bet) => sum + bet.amount, 0)
+    const totalAmount = dayBets.reduce((sum, bet) => sum + bet.amount, 0)
 
     const statsMap = new Map<string, AnimalStats>()
 
-    drawBets.forEach((bet) => {
+    dayBets.forEach((bet) => {
       const key = bet.animalNumber
       if (!statsMap.has(key)) {
         statsMap.set(key, {
@@ -78,9 +83,9 @@ export function DrawStatsCard({ bets, draws, lotteries }: DrawStatsCardProps) {
     }))
 
     return statsArray.sort((a, b) => b.totalAmount - a.totalAmount)
-  }, [selectedDrawId, bets, draws])
+  }, [selectedResultId, bets, dailyResults])
 
-  const selectedDraw = draws.find((d) => d.id === selectedDrawId)
+  const selectedResult = dailyResults.find((r) => r.id === selectedResultId)
   const totalAmount = animalStats.reduce((sum, stat) => sum + stat.totalAmount, 0)
   const totalBetCount = animalStats.reduce((sum, stat) => sum + stat.betCount, 0)
 
@@ -92,23 +97,23 @@ export function DrawStatsCard({ bets, draws, lotteries }: DrawStatsCardProps) {
           Estadísticas por Animalito
         </CardTitle>
         <CardDescription>
-          Seleccione un sorteo para ver el porcentaje de jugadas por animalito
+          Seleccione un resultado para ver el porcentaje de jugadas por animalito
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Seleccionar Sorteo</label>
-          <Select value={selectedDrawId} onValueChange={setSelectedDrawId}>
+          <label className="text-sm font-medium">Seleccionar Resultado</label>
+          <Select value={selectedResultId} onValueChange={setSelectedResultId}>
             <SelectTrigger>
-              <SelectValue placeholder="Seleccione un sorteo..." />
+              <SelectValue placeholder="Seleccione un resultado..." />
             </SelectTrigger>
             <SelectContent>
-              {sortedDraws.length === 0 ? (
-                <div className="p-2 text-sm text-muted-foreground">No hay sorteos realizados</div>
+              {sortedResults.length === 0 ? (
+                <div className="p-2 text-sm text-muted-foreground">No hay resultados cargados</div>
               ) : (
-                sortedDraws.map((draw) => (
-                  <SelectItem key={draw.id} value={draw.id}>
-                    {draw.lotteryName} - {format(new Date(draw.drawTime), "dd/MM/yyyy HH:mm", { locale: es })} - Ganador: {draw.winningAnimalNumber} {draw.winningAnimalName}
+                sortedResults.map((result) => (
+                  <SelectItem key={result.id} value={result.id}>
+                    {result.lottery?.name || 'Lotería'} - {format(parseISO(result.resultDate), "dd/MM/yyyy", { locale: es })} - Ganador: {result.prize?.animalNumber || '??'} {result.prize?.animalName || ''}
                   </SelectItem>
                 ))
               )}
@@ -116,7 +121,7 @@ export function DrawStatsCard({ bets, draws, lotteries }: DrawStatsCardProps) {
           </Select>
         </div>
 
-        {selectedDrawId && selectedDraw && (
+        {selectedResultId && selectedResult && (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-3">
               <Card>
@@ -143,20 +148,32 @@ export function DrawStatsCard({ bets, draws, lotteries }: DrawStatsCardProps) {
               <div className="flex items-center justify-between">
                 <h3 className="text-xs md:text-sm font-medium">Animalito Ganador</h3>
                 <Badge variant="default" className="text-xs">
-                  {selectedDraw.winningAnimalNumber} - {selectedDraw.winningAnimalName}
+                  {selectedResult.prize?.animalNumber || '??'} - {selectedResult.prize?.animalName || 'Desconocido'}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
-                <h3 className="text-xs md:text-sm font-medium">Fecha del Sorteo</h3>
+                <h3 className="text-xs md:text-sm font-medium">Fecha del Resultado</h3>
                 <div className="text-xs md:text-sm font-semibold">
-                  {format(new Date(selectedDraw.drawTime), "dd/MM/yyyy HH:mm", { locale: es })}
+                  {format(parseISO(selectedResult.resultDate), "dd/MM/yyyy", { locale: es })}
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs md:text-sm font-medium">Total a Pagar</h3>
+                <div className="text-xs md:text-sm font-semibold text-red-600">
+                  {formatCurrency(selectedResult.totalToPay || 0)}
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs md:text-sm font-medium">Ganancia Neta</h3>
+                <div className={`text-xs md:text-sm font-semibold ${(selectedResult.totalRaised || 0) >= 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {formatCurrency(selectedResult.totalRaised || 0)}
                 </div>
               </div>
             </div>
 
             {animalStats.length === 0 ? (
               <p className="text-center text-muted-foreground py-8 text-sm">
-                No hay jugadas registradas para este sorteo
+                No hay jugadas registradas para este resultado
               </p>
             ) : (
               <ScrollArea className="h-[400px] md:h-[500px]">
@@ -174,7 +191,7 @@ export function DrawStatsCard({ bets, draws, lotteries }: DrawStatsCardProps) {
                     </TableHeader>
                   <TableBody>
                     {animalStats.map((stat, index) => {
-                      const isWinner = stat.animalNumber === selectedDraw.winningAnimalNumber
+                      const isWinner = stat.animalNumber === selectedResult.prize?.animalNumber
                       return (
                         <TableRow key={stat.animalNumber} className={isWinner ? "bg-accent/20" : ""}>
                           <TableCell className="font-medium text-xs md:text-sm">
@@ -219,12 +236,12 @@ export function DrawStatsCard({ bets, draws, lotteries }: DrawStatsCardProps) {
           </div>
         )}
 
-        {!selectedDrawId && (
+        {!selectedResultId && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <ChartBar className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium">Seleccione un sorteo</p>
+            <p className="text-lg font-medium">Seleccione un resultado</p>
             <p className="text-muted-foreground">
-              Elija un sorteo del menú desplegable para ver las estadísticas detalladas
+              Elija un resultado del menú desplegable para ver las estadísticas detalladas
             </p>
           </div>
         )}

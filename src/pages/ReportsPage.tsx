@@ -3,7 +3,7 @@ import { DrawStatsCard } from '@/components/DrawStatsCard'
 import { useApp } from '@/contexts/AppContext'
 
 export function ReportsPage() {
-  const { draws, lotteries, bets, users } = useApp()
+  const { dailyResults, lotteries, bets, users } = useApp()
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -13,13 +13,13 @@ export function ReportsPage() {
       </div>
 
       <ReportsCard
-        draws={draws}
+        dailyResults={dailyResults}
         lotteries={lotteries}
         bets={bets}
         users={users}
       />
 
-      <DrawStatsCard bets={bets} draws={draws} lotteries={lotteries} />
+      <DrawStatsCard bets={bets} dailyResults={dailyResults} lotteries={lotteries} />
     </div>
   )
 }

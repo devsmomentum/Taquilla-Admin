@@ -280,6 +280,90 @@ export function useDailyResults() {
     return dailyResults.filter(r => r.resultDate >= weekStart && r.resultDate <= weekEnd)
   }, [dailyResults])
 
+  /**
+   * Obtiene los ganadores de un resultado específico
+   * Busca en bets_item_lottery_clasic los items con status 'winner' y el prize_id correspondiente
+   */
+  const getWinnersForResult = useCallback(async (
+    prizeId: string,
+    resultDate: string
+  ): Promise<Array<{
+    id: string
+    amount: number
+    potentialWin: number
+    taquillaId: string
+    taquillaName: string
+    createdAt: string
+  }>> => {
+    try {
+      const dateObj = parseISO(resultDate)
+      const dayStart = startOfDay(dateObj).toISOString()
+      const dayEnd = endOfDay(dateObj).toISOString()
+
+      // 1. Obtener bets del día
+      const { data: betsOfDay, error: betsError } = await supabase
+        .from('bets')
+        .select('id, user_id, created_at')
+        .gte('created_at', dayStart)
+        .lte('created_at', dayEnd)
+
+      if (betsError || !betsOfDay || betsOfDay.length === 0) {
+        return []
+      }
+
+      const betIds = betsOfDay.map(b => b.id)
+      const betMap = new Map<string, { userId: string | null; createdAt: string }>(
+        betsOfDay.map(b => [b.id, { userId: b.user_id, createdAt: b.created_at }])
+      )
+
+      // 2. Buscar items ganadores
+      const { data: winningItems, error: itemsError } = await supabase
+        .from('bets_item_lottery_clasic')
+        .select('id, bets_id, amount, potential_bet_amount')
+        .in('bets_id', betIds)
+        .eq('prize_id', prizeId)
+        .eq('status', 'winner')
+
+      if (itemsError || !winningItems) {
+        return []
+      }
+
+      // 3. Obtener información de usuarios (taquillas)
+      const userIds = [...new Set(betsOfDay.map(b => b.user_id).filter(Boolean))]
+
+      let usersMap = new Map<string, string>()
+      if (userIds.length > 0) {
+        const { data: users } = await supabase
+          .from('users')
+          .select('id, name')
+          .in('id', userIds)
+
+        if (users) {
+          usersMap = new Map(users.map(u => [u.id, u.name]))
+        }
+      }
+
+      // 4. Mapear resultados
+      return winningItems.map(item => {
+        const betInfo = betMap.get(item.bets_id)
+        const taquillaId = betInfo?.userId || ''
+        const taquillaName = usersMap.get(taquillaId) || 'Desconocida'
+
+        return {
+          id: item.id,
+          amount: Number(item.amount) || 0,
+          potentialWin: Number(item.potential_bet_amount) || 0,
+          taquillaId,
+          taquillaName,
+          createdAt: betInfo?.createdAt || ''
+        }
+      })
+    } catch (err) {
+      console.error('Error in getWinnersForResult:', err)
+      return []
+    }
+  }, [])
+
   useEffect(() => {
     loadDailyResults()
   }, [loadDailyResults])
@@ -293,6 +377,7 @@ export function useDailyResults() {
     updateDailyResult,
     deleteDailyResult,
     getResultForLotteryAndDate,
-    getResultsForWeek
+    getResultsForWeek,
+    getWinnersForResult
   }
 }

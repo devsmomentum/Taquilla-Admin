@@ -76,6 +76,14 @@ interface AppContextType {
   updateDailyResult: (id: string, updates: Partial<{ prizeId: string; totalToPay: number; totalRaised: number }>) => Promise<boolean>
   deleteDailyResult: (id: string) => Promise<boolean>
   getResultForLotteryAndDate: (lotteryId: string, date: string) => DailyResult | undefined
+  getWinnersForResult: (prizeId: string, resultDate: string) => Promise<Array<{
+    id: string
+    amount: number
+    potentialWin: number
+    taquillaId: string
+    taquillaName: string
+    createdAt: string
+  }>>
 
   // Bets
   bets: Bet[]
@@ -198,7 +206,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     createDailyResult,
     updateDailyResult,
     deleteDailyResult,
-    getResultForLotteryAndDate
+    getResultForLotteryAndDate,
+    getWinnersForResult
   } = useDailyResults()
 
   // Bets
@@ -444,6 +453,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateDailyResult,
     deleteDailyResult,
     getResultForLotteryAndDate,
+    getWinnersForResult,
 
     bets: bets || [],
     betsLoading,

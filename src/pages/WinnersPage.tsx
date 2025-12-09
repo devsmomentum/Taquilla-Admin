@@ -12,7 +12,7 @@ import { es } from 'date-fns/locale'
 import { MagnifyingGlass } from '@phosphor-icons/react'
 
 export function WinnersPage() {
-  const { winners, draws, lotteries } = useApp()
+  const { winners, dailyResults, lotteries } = useApp()
 
   const [winnerSearch, setWinnerSearch] = useState('')
   const [winnerFilters, setWinnerFilters] = useState<{ lotteryId?: string }>({})
@@ -52,8 +52,8 @@ export function WinnersPage() {
               <div className="text-sm text-muted-foreground">Total Apostado</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold">{draws.length}</div>
-              <div className="text-sm text-muted-foreground">Sorteos Realizados</div>
+              <div className="text-2xl font-bold">{dailyResults.length}</div>
+              <div className="text-sm text-muted-foreground">Resultados Cargados</div>
             </div>
           </div>
         </CardContent>

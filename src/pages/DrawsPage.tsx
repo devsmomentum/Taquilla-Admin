@@ -1,15 +1,26 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { useApp } from '@/contexts/AppContext'
 import { toast } from 'sonner'
 import { format, startOfWeek, endOfWeek, addDays, addWeeks, subWeeks, isToday, isBefore, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { CaretLeft, CaretRight, Target, CheckCircle, Calendar, Warning, Clock } from '@phosphor-icons/react'
-import { ANIMALS, Lottery } from '@/lib/types'
+import { CaretLeft, CaretRight, Target, CheckCircle, Calendar, Warning, Clock, Trophy, CurrencyDollar, Users, Storefront, SpinnerGap } from '@phosphor-icons/react'
+import { ANIMALS, Lottery, DailyResult } from '@/lib/types'
+
+interface WinnerItem {
+  id: string
+  amount: number
+  potentialWin: number
+  taquillaId: string
+  taquillaName: string
+  createdAt: string
+}
 
 export function DrawsPage() {
   const {
@@ -17,7 +28,8 @@ export function DrawsPage() {
     dailyResults,
     dailyResultsLoading,
     createDailyResult,
-    getResultForLotteryAndDate
+    getResultForLotteryAndDate,
+    getWinnersForResult
   } = useApp()
 
   const [currentWeekStart, setCurrentWeekStart] = useState(() =>
@@ -27,6 +39,10 @@ export function DrawsPage() {
   const [selectedPrizeId, setSelectedPrizeId] = useState<string>('')
   const [savingResult, setSavingResult] = useState(false)
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const [resultDetailOpen, setResultDetailOpen] = useState(false)
+  const [selectedResult, setSelectedResult] = useState<DailyResult | null>(null)
+  const [winners, setWinners] = useState<WinnerItem[]>([])
+  const [loadingWinners, setLoadingWinners] = useState(false)
 
   // Loterías activas ordenadas por hora de jugada
   const activeLotteries = useMemo(() => {
@@ -143,11 +159,42 @@ export function DrawsPage() {
       return {
         hasResult: true,
         number: result.prize.animalNumber,
-        name: result.prize.animalName
+        name: result.prize.animalName,
+        hasWinners: (result.totalToPay || 0) > 0,
+        totalToPay: result.totalToPay || 0,
+        totalRaised: result.totalRaised || 0,
+        result
       }
     }
 
-    return { hasResult: false, number: '', name: '' }
+    return { hasResult: false, number: '', name: '', hasWinners: false, totalToPay: 0, totalRaised: 0, result: null }
+  }
+
+  const handleResultClick = async (result: DailyResult) => {
+    setSelectedResult(result)
+    setWinners([])
+    setResultDetailOpen(true)
+
+    // Cargar ganadores si hay total a pagar
+    if ((result.totalToPay || 0) > 0 && result.prizeId) {
+      setLoadingWinners(true)
+      try {
+        const winnersData = await getWinnersForResult(result.prizeId, result.resultDate)
+        setWinners(winnersData)
+      } catch (err) {
+        console.error('Error loading winners:', err)
+      } finally {
+        setLoadingWinners(false)
+      }
+    }
+  }
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-VE', {
+      style: 'currency',
+      currency: 'VES',
+      minimumFractionDigits: 2
+    }).format(amount)
   }
 
   const selectedLottery = selectedCell
@@ -260,7 +307,7 @@ export function DrawsPage() {
                     </td>
                     {weekDays.map((day) => {
                       const dateStr = format(day, 'yyyy-MM-dd')
-                      const { hasResult, number, name } = getResultDisplay(lottery.id, day)
+                      const { hasResult, number, name, hasWinners, result } = getResultDisplay(lottery.id, day)
                       const isTodayDate = isToday(day)
                       const isPast = isBefore(day, new Date()) && !isTodayDate
                       const isFuture = isBefore(new Date(), day) && !isTodayDate
@@ -277,15 +324,36 @@ export function DrawsPage() {
                           }`}
                         >
                           {hasResult ? (
-                            <div className="flex flex-col items-center gap-0.5">
-                              <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                                <span className="text-lg font-bold text-emerald-700">{number}</span>
+                            <button
+                              onClick={() => result && handleResultClick(result)}
+                              className="flex flex-col items-center gap-0.5 w-full cursor-pointer hover:scale-105 transition-transform"
+                              title="Ver detalles del resultado"
+                            >
+                              <div className={`h-10 w-10 rounded-lg flex items-center justify-center relative ${
+                                hasWinners
+                                  ? 'bg-gradient-to-br from-blue-500 to-blue-600 ring-2 ring-blue-300 ring-offset-1'
+                                  : 'bg-emerald-100'
+                              }`}>
+                                <span className={`text-lg font-bold ${hasWinners ? 'text-white' : 'text-emerald-700'}`}>
+                                  {number}
+                                </span>
+                                {hasWinners && (
+                                  <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-amber-400 flex items-center justify-center">
+                                    <Trophy className="h-2.5 w-2.5 text-amber-900" weight="fill" />
+                                  </div>
+                                )}
                               </div>
-                              <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">
+                              <span className={`text-[10px] truncate max-w-[80px] ${
+                                hasWinners ? 'text-blue-600 font-medium' : 'text-muted-foreground'
+                              }`}>
                                 {name}
                               </span>
-                              <CheckCircle className="h-3 w-3 text-emerald-500" weight="fill" />
-                            </div>
+                              {hasWinners ? (
+                                <Trophy className="h-3 w-3 text-amber-500" weight="fill" />
+                              ) : (
+                                <CheckCircle className="h-3 w-3 text-emerald-500" weight="fill" />
+                              )}
+                            </button>
                           ) : isFuture || isPendingToday ? (
                             <div className="flex flex-col items-center gap-0.5">
                               <div className={`h-10 w-10 mx-auto rounded-lg flex items-center justify-center ${
@@ -375,7 +443,16 @@ export function DrawsPage() {
           <div className="h-6 w-6 rounded bg-emerald-100 flex items-center justify-center">
             <CheckCircle className="h-3 w-3 text-emerald-500" weight="fill" />
           </div>
-          <span className="text-muted-foreground">Resultado cargado</span>
+          <span className="text-muted-foreground">Sin ganadores</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-6 w-6 rounded bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center relative">
+            <span className="text-xs font-bold text-white">!</span>
+            <div className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-amber-400 flex items-center justify-center">
+              <Trophy className="h-2 w-2 text-amber-900" weight="fill" />
+            </div>
+          </div>
+          <span className="text-muted-foreground">Con ganadores</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="h-6 w-6 rounded border-2 border-dashed border-primary/50"></div>
@@ -443,6 +520,161 @@ export function DrawsPage() {
               disabled={savingResult}
             >
               {savingResult ? 'Guardando...' : 'Confirmar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de detalles del resultado */}
+      <Dialog open={resultDetailOpen} onOpenChange={setResultDetailOpen}>
+        <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                (selectedResult?.totalToPay || 0) > 0
+                  ? 'bg-gradient-to-br from-blue-500 to-blue-600'
+                  : 'bg-emerald-100'
+              }`}>
+                {(selectedResult?.totalToPay || 0) > 0 ? (
+                  <Trophy className="h-6 w-6 text-white" weight="fill" />
+                ) : (
+                  <Target className="h-6 w-6 text-emerald-600" weight="fill" />
+                )}
+              </div>
+              <div>
+                <DialogTitle>Detalles del Resultado</DialogTitle>
+                <DialogDescription>
+                  {selectedResult?.lottery?.name || 'Lotería'}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {selectedResult && (
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
+              {/* Fecha y resultado */}
+              <div className="bg-muted/50 rounded-lg p-4 text-center">
+                <p className="text-sm text-muted-foreground mb-2">
+                  {selectedResult.resultDate && format(parseISO(selectedResult.resultDate), "EEEE d 'de' MMMM yyyy", { locale: es })}
+                </p>
+                <div className={`inline-flex items-center justify-center h-16 w-16 rounded-xl mb-2 ${
+                  (selectedResult.totalToPay || 0) > 0
+                    ? 'bg-gradient-to-br from-blue-500 to-blue-600 ring-4 ring-blue-300'
+                    : 'bg-emerald-100'
+                }`}>
+                  <span className={`text-3xl font-bold ${
+                    (selectedResult.totalToPay || 0) > 0 ? 'text-white' : 'text-emerald-700'
+                  }`}>
+                    {selectedResult.prize?.animalNumber || '??'}
+                  </span>
+                </div>
+                <p className="text-lg font-semibold">
+                  {selectedResult.prize?.animalName || 'Desconocido'}
+                </p>
+              </div>
+
+              {/* Montos */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CurrencyDollar className="h-4 w-4 text-red-500" />
+                    <span className="text-xs font-medium text-red-600">Total a Pagar</span>
+                  </div>
+                  <p className="text-xl font-bold text-red-700">
+                    {formatCurrency(selectedResult.totalToPay || 0)}
+                  </p>
+                </div>
+                <div className={`rounded-lg p-3 border ${
+                  (selectedResult.totalRaised || 0) >= 0
+                    ? 'bg-emerald-50 border-emerald-200'
+                    : 'bg-amber-50 border-amber-200'
+                }`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <CurrencyDollar className={`h-4 w-4 ${
+                      (selectedResult.totalRaised || 0) >= 0 ? 'text-emerald-500' : 'text-amber-500'
+                    }`} />
+                    <span className={`text-xs font-medium ${
+                      (selectedResult.totalRaised || 0) >= 0 ? 'text-emerald-600' : 'text-amber-600'
+                    }`}>
+                      {(selectedResult.totalRaised || 0) >= 0 ? 'Ganancia Neta' : 'Pérdida'}
+                    </span>
+                  </div>
+                  <p className={`text-xl font-bold ${
+                    (selectedResult.totalRaised || 0) >= 0 ? 'text-emerald-700' : 'text-amber-700'
+                  }`}>
+                    {formatCurrency(Math.abs(selectedResult.totalRaised || 0))}
+                  </p>
+                </div>
+              </div>
+
+              {/* Estado de ganadores y tabla */}
+              {(selectedResult.totalToPay || 0) > 0 ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-blue-700">
+                    <Trophy className="h-5 w-5 text-amber-500" weight="fill" />
+                    <span className="font-medium">Jugadas Ganadoras ({winners.length})</span>
+                  </div>
+
+                  {loadingWinners ? (
+                    <div className="flex items-center justify-center py-6">
+                      <SpinnerGap className="h-6 w-6 animate-spin text-blue-500" />
+                      <span className="ml-2 text-sm text-muted-foreground">Cargando ganadores...</span>
+                    </div>
+                  ) : winners.length > 0 ? (
+                    <ScrollArea className="h-[200px] rounded-lg border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">Taquilla</TableHead>
+                            <TableHead className="text-xs text-right">Apostado</TableHead>
+                            <TableHead className="text-xs text-right">Premio</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {winners.map((winner) => (
+                            <TableRow key={winner.id}>
+                              <TableCell className="py-2">
+                                <div className="flex items-center gap-2">
+                                  <Storefront className="h-4 w-4 text-muted-foreground" />
+                                  <span className="text-sm font-medium">{winner.taquillaName}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-2 text-right text-sm tabular-nums">
+                                {formatCurrency(winner.amount)}
+                              </TableCell>
+                              <TableCell className="py-2 text-right text-sm tabular-nums font-semibold text-emerald-600">
+                                {formatCurrency(winner.potentialWin)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  ) : (
+                    <div className="text-center py-4 text-sm text-muted-foreground">
+                      No se encontraron detalles de ganadores
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-lg p-4 text-center bg-gray-50 border border-gray-200">
+                  <div className="flex items-center justify-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-gray-400" weight="fill" />
+                    <span className="font-medium text-gray-600">Sin ganadores</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Info adicional */}
+              <div className="text-xs text-muted-foreground text-center">
+                <p>Resultado registrado: {selectedResult.createdAt && format(parseISO(selectedResult.createdAt), "dd/MM/yyyy HH:mm", { locale: es })}</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex-shrink-0">
+            <Button variant="outline" onClick={() => setResultDetailOpen(false)}>
+              Cerrar
             </Button>
           </DialogFooter>
         </DialogContent>

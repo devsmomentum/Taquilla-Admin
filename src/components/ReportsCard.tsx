@@ -4,28 +4,29 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatCurrency } from "@/lib/pot-utils"
-import { DrawResult, Lottery, Bet, User } from "@/lib/types"
-import { format, startOfDay, startOfWeek, startOfMonth } from "date-fns"
+import { DailyResult, Lottery, Bet, User } from "@/lib/types"
+import { format, startOfDay, startOfWeek, startOfMonth, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
 import { Trophy, ChartBar, Storefront } from "@phosphor-icons/react"
 import { useState, useMemo } from "react"
 
 interface ReportsCardProps {
-  draws: DrawResult[]
+  dailyResults: DailyResult[]
   lotteries: Lottery[]
   bets?: Bet[]
   users?: User[]
 }
 
-interface DrawsStats {
-  totalDraws: number
+interface ResultsStats {
+  totalResults: number
   totalPayout: number
-  drawsWithWinners: number
-  drawsWithoutWinners: number
+  resultsWithWinners: number
+  resultsWithoutWinners: number
+  totalRaised: number
   averagePayout: number
 }
 
-export function ReportsCard({ draws, lotteries, bets = [], users = [] }: ReportsCardProps) {
+export function ReportsCard({ dailyResults, lotteries, bets = [], users = [] }: ReportsCardProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<'today' | 'week' | 'month' | 'all'>('all')
 
   const now = new Date()
@@ -33,76 +34,82 @@ export function ReportsCard({ draws, lotteries, bets = [], users = [] }: Reports
   const weekStart = startOfWeek(now, { weekStartsOn: 1 })
   const monthStart = startOfMonth(now)
 
-  // Filtrar sorteos por período
-  const filteredDraws = useMemo(() => {
-    return draws.filter(draw => {
-      const drawDate = new Date(draw.drawTime)
+  // Filtrar resultados por período
+  const filteredResults = useMemo(() => {
+    return dailyResults.filter(result => {
+      const resultDate = parseISO(result.resultDate)
       switch (selectedPeriod) {
         case 'today':
-          return drawDate >= todayStart
+          return resultDate >= todayStart
         case 'week':
-          return drawDate >= weekStart
+          return resultDate >= weekStart
         case 'month':
-          return drawDate >= monthStart
+          return resultDate >= monthStart
         default:
           return true
       }
     })
-  }, [draws, selectedPeriod, todayStart, weekStart, monthStart])
+  }, [dailyResults, selectedPeriod, todayStart, weekStart, monthStart])
 
   // Calcular estadísticas
-  const stats = useMemo((): DrawsStats => {
-    const totalDraws = filteredDraws.length
-    const totalPayout = filteredDraws.reduce((sum, draw) => sum + (draw.totalPayout || 0), 0)
-    const drawsWithWinners = filteredDraws.filter(d => (d.winnersCount || 0) > 0).length
-    const drawsWithoutWinners = totalDraws - drawsWithWinners
-    const averagePayout = drawsWithWinners > 0 ? totalPayout / drawsWithWinners : 0
+  const stats = useMemo((): ResultsStats => {
+    const totalResults = filteredResults.length
+    const totalPayout = filteredResults.reduce((sum, r) => sum + (r.totalToPay || 0), 0)
+    const totalRaised = filteredResults.reduce((sum, r) => sum + (r.totalRaised || 0), 0)
+    const resultsWithWinners = filteredResults.filter(r => (r.totalToPay || 0) > 0).length
+    const resultsWithoutWinners = totalResults - resultsWithWinners
+    const averagePayout = resultsWithWinners > 0 ? totalPayout / resultsWithWinners : 0
 
     return {
-      totalDraws,
+      totalResults,
       totalPayout,
-      drawsWithWinners,
-      drawsWithoutWinners,
+      totalRaised,
+      resultsWithWinners,
+      resultsWithoutWinners,
       averagePayout
     }
-  }, [filteredDraws])
+  }, [filteredResults])
 
   // Top loterías por premios pagados
   const topLotteries = useMemo(() => {
-    const lotteryStats = new Map<string, { name: string; payout: number; draws: number }>()
+    const lotteryStats = new Map<string, { name: string; payout: number; raised: number; results: number }>()
 
-    filteredDraws.forEach((draw) => {
-      const current = lotteryStats.get(draw.lotteryId) || { name: draw.lotteryName, payout: 0, draws: 0 }
-      lotteryStats.set(draw.lotteryId, {
-        name: draw.lotteryName,
-        payout: current.payout + (draw.totalPayout || 0),
-        draws: current.draws + 1,
+    filteredResults.forEach((result) => {
+      const lotteryName = result.lottery?.name || 'Desconocida'
+      const current = lotteryStats.get(result.lotteryId) || { name: lotteryName, payout: 0, raised: 0, results: 0 }
+      lotteryStats.set(result.lotteryId, {
+        name: lotteryName,
+        payout: current.payout + (result.totalToPay || 0),
+        raised: current.raised + (result.totalRaised || 0),
+        results: current.results + 1,
       })
     })
 
     return Array.from(lotteryStats.values())
       .sort((a, b) => b.payout - a.payout)
       .slice(0, 5)
-  }, [filteredDraws])
+  }, [filteredResults])
 
-  // Animales más ganadores
+  // Items más ganadores
   const topWinningAnimals = useMemo(() => {
     const animalStats = new Map<string, { name: string; wins: number; totalPayout: number }>()
 
-    filteredDraws.filter(d => (d.winnersCount || 0) > 0).forEach((draw) => {
-      const key = `${draw.winningAnimalNumber}-${draw.winningAnimalName}`
-      const current = animalStats.get(key) || { name: `${draw.winningAnimalNumber} - ${draw.winningAnimalName}`, wins: 0, totalPayout: 0 }
-      animalStats.set(key, {
-        name: current.name,
-        wins: current.wins + 1,
-        totalPayout: current.totalPayout + (draw.totalPayout || 0)
-      })
+    filteredResults.filter(r => (r.totalToPay || 0) > 0).forEach((result) => {
+      if (result.prize) {
+        const key = `${result.prize.animalNumber}-${result.prize.animalName}`
+        const current = animalStats.get(key) || { name: `${result.prize.animalNumber} - ${result.prize.animalName}`, wins: 0, totalPayout: 0 }
+        animalStats.set(key, {
+          name: current.name,
+          wins: current.wins + 1,
+          totalPayout: current.totalPayout + (result.totalToPay || 0)
+        })
+      }
     })
 
     return Array.from(animalStats.values())
       .sort((a, b) => b.wins - a.wins)
       .slice(0, 10)
-  }, [filteredDraws])
+  }, [filteredResults])
 
   const getPeriodLabel = () => {
     switch (selectedPeriod) {
@@ -119,7 +126,7 @@ export function ReportsCard({ draws, lotteries, bets = [], users = [] }: Reports
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-semibold">Reportes y Estadísticas</h3>
-          <p className="text-sm text-muted-foreground">Análisis de sorteos realizados</p>
+          <p className="text-sm text-muted-foreground">Análisis de resultados diarios</p>
         </div>
         <Select value={selectedPeriod} onValueChange={(value: any) => setSelectedPeriod(value)}>
           <SelectTrigger className="w-[200px]">
@@ -138,8 +145,8 @@ export function ReportsCard({ draws, lotteries, bets = [], users = [] }: Reports
       <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription className="text-xs md:text-sm">Sorteos Realizados</CardDescription>
-            <CardTitle className="text-lg md:text-xl lg:text-2xl tabular-nums">{stats.totalDraws}</CardTitle>
+            <CardDescription className="text-xs md:text-sm">Resultados Cargados</CardDescription>
+            <CardTitle className="text-lg md:text-xl lg:text-2xl tabular-nums">{stats.totalResults}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xs md:text-sm text-muted-foreground">
@@ -150,24 +157,26 @@ export function ReportsCard({ draws, lotteries, bets = [], users = [] }: Reports
 
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription className="text-xs md:text-sm">Premios Pagados</CardDescription>
-            <CardTitle className="text-lg md:text-xl lg:text-2xl tabular-nums overflow-hidden text-ellipsis">{formatCurrency(stats.totalPayout)}</CardTitle>
+            <CardDescription className="text-xs md:text-sm">Total a Pagar</CardDescription>
+            <CardTitle className="text-lg md:text-xl lg:text-2xl tabular-nums overflow-hidden text-ellipsis text-red-600">{formatCurrency(stats.totalPayout)}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xs md:text-sm text-muted-foreground">
-              {stats.drawsWithWinners} sorteos con ganadores
+              {stats.resultsWithWinners} resultados con ganadores
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription className="text-xs md:text-sm">Con Ganadores</CardDescription>
-            <CardTitle className="text-lg md:text-xl lg:text-2xl tabular-nums">{stats.drawsWithWinners}</CardTitle>
+            <CardDescription className="text-xs md:text-sm">Ganancia Neta</CardDescription>
+            <CardTitle className={`text-lg md:text-xl lg:text-2xl tabular-nums ${stats.totalRaised >= 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+              {formatCurrency(Math.abs(stats.totalRaised))}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-xs md:text-sm text-muted-foreground">
-              {stats.totalDraws > 0 ? ((stats.drawsWithWinners / stats.totalDraws) * 100).toFixed(1) : 0}% del total
+              {stats.totalRaised >= 0 ? 'Utilidad' : 'Pérdida'}
             </div>
           </CardContent>
         </Card>
@@ -190,7 +199,7 @@ export function ReportsCard({ draws, lotteries, bets = [], users = [] }: Reports
         {/* Top Loterías */}
         <Card>
           <CardHeader>
-            <CardTitle>Loterías con Más Premios</CardTitle>
+            <CardTitle>Loterías con Más Premios Pagados</CardTitle>
             <CardDescription>Ranking por premios pagados</CardDescription>
           </CardHeader>
           <CardContent>
@@ -206,9 +215,14 @@ export function ReportsCard({ draws, lotteries, bets = [], users = [] }: Reports
                       </div>
                       <div className="flex-1 space-y-1">
                         <p className="text-sm font-medium leading-none">{lottery.name}</p>
-                        <p className="text-xs text-muted-foreground">{lottery.draws} sorteos</p>
+                        <p className="text-xs text-muted-foreground">{lottery.results} resultados</p>
                       </div>
-                      <p className="font-semibold tabular-nums">{formatCurrency(lottery.payout)}</p>
+                      <div className="text-right">
+                        <p className="font-semibold tabular-nums text-red-600">{formatCurrency(lottery.payout)}</p>
+                        <p className={`text-xs ${lottery.raised >= 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {lottery.raised >= 0 ? '+' : ''}{formatCurrency(lottery.raised)}
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -267,7 +281,7 @@ export function ReportsCard({ draws, lotteries, bets = [], users = [] }: Reports
               <div className="space-y-4">
                 {(() => {
                   const taquillaStats = new Map<string, number>()
-                  
+
                   // Filtrar apuestas por fecha
                   const periodBets = bets.filter(bet => {
                     const betDate = new Date(bet.timestamp)
@@ -317,7 +331,7 @@ export function ReportsCard({ draws, lotteries, bets = [], users = [] }: Reports
       )}
 
       {/* Resumen detallado */}
-      {filteredDraws.length > 0 && (
+      {filteredResults.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Resumen del Período: {getPeriodLabel()}</CardTitle>
@@ -325,19 +339,19 @@ export function ReportsCard({ draws, lotteries, bets = [], users = [] }: Reports
           <CardContent>
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
-                <p className="text-sm font-medium">Total de Sorteos</p>
+                <p className="text-sm font-medium">Total de Resultados</p>
                 <div className="flex items-center gap-2">
                   <Trophy className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-2xl font-bold">{stats.totalDraws}</span>
+                  <span className="text-2xl font-bold">{stats.totalResults}</span>
                 </div>
               </div>
               <Separator className="md:hidden" />
               <div className="space-y-2">
                 <p className="text-sm font-medium">Con Ganadores</p>
                 <div className="flex items-center gap-2">
-                  <Badge variant="default">{stats.drawsWithWinners}</Badge>
+                  <Badge variant="default">{stats.resultsWithWinners}</Badge>
                   <span className="text-sm text-muted-foreground">
-                    ({stats.totalDraws > 0 ? ((stats.drawsWithWinners / stats.totalDraws) * 100).toFixed(1) : 0}%)
+                    ({stats.totalResults > 0 ? ((stats.resultsWithWinners / stats.totalResults) * 100).toFixed(1) : 0}%)
                   </span>
                 </div>
               </div>
@@ -345,9 +359,9 @@ export function ReportsCard({ draws, lotteries, bets = [], users = [] }: Reports
               <div className="space-y-2">
                 <p className="text-sm font-medium">Sin Ganadores</p>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline">{stats.drawsWithoutWinners}</Badge>
+                  <Badge variant="outline">{stats.resultsWithoutWinners}</Badge>
                   <span className="text-sm text-muted-foreground">
-                    ({stats.totalDraws > 0 ? ((stats.drawsWithoutWinners / stats.totalDraws) * 100).toFixed(1) : 0}%)
+                    ({stats.totalResults > 0 ? ((stats.resultsWithoutWinners / stats.totalResults) * 100).toFixed(1) : 0}%)
                   </span>
                 </div>
               </div>
