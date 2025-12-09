@@ -9,6 +9,7 @@ import { useSupabaseApiKeys } from '@/hooks/use-supabase-apikeys'
 import { useSupabasePots } from '@/hooks/use-supabase-pots'
 import { useAutoPlayTomorrow } from '@/hooks/use-auto-play-tomorrow'
 import { useDailyResults } from '@/hooks/use-daily-results'
+import { useWinners, Winner } from '@/hooks/use-winners'
 
 interface AppContextType {
   // Auth
@@ -108,9 +109,13 @@ interface AppContextType {
   comercializadoras: any[]
   visibleAgencies: any[]
   visibleTaquillas: any[]
-  winners: Bet[]
   activeBets: Bet[]
   defaultAgencyId?: string
+
+  // Winners from bets_item_lottery_clasic
+  winners: Winner[]
+  winnersLoading: boolean
+  loadWinners: (startDate?: string, endDate?: string) => Promise<void>
 }
 
 const AppContext = createContext<AppContextType | null>(null)
@@ -220,6 +225,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     markWinners,
     isConnected: betsConnected
   } = useSupabaseBets(!!currentUser)
+
+  // Winners from bets_item_lottery_clasic
+  const {
+    winners,
+    loading: winnersLoading,
+    loadWinners
+  } = useWinners()
 
   // Auto-play tomorrow
   useAutoPlayTomorrow(lotteries, updateLottery)
@@ -392,7 +404,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return undefined
   }
 
-  const winners = (bets || []).filter(b => b.isWinner)
   const activeBets = (bets || []).filter(b => !b.isWinner)
 
   const value: AppContextType = {
@@ -476,9 +487,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     comercializadoras,
     visibleAgencies,
     visibleTaquillas,
-    winners,
     activeBets,
-    defaultAgencyId: getDefaultAgencyId()
+    defaultAgencyId: getDefaultAgencyId(),
+
+    // Winners from bets_item_lottery_clasic
+    winners: winners || [],
+    winnersLoading,
+    loadWinners
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
