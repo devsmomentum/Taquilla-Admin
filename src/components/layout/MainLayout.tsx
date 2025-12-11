@@ -22,17 +22,22 @@ import {
   UserCircle
 } from '@phosphor-icons/react'
 
-// Items de navegación base - el path de comercializadoras se ajusta según el tipo de usuario
+// Items de navegación base - el path y label se ajustan según el tipo de usuario
 const getNavItems = (currentUser: any) => {
-  // Para comercializadoras, el link va directo a sus agencias
-  const comercializadorasPath = currentUser?.userType === 'comercializadora'
-    ? `/comercializadoras/${currentUser.id}/agencias`
-    : '/comercializadoras'
+  let comercializadorasPath = '/comercializadoras'
+  let comercializadorasLabel = 'Comercializadoras'
 
-  // Para comercializadoras, el label es "Mis Agencias"
-  const comercializadorasLabel = currentUser?.userType === 'comercializadora'
-    ? 'Mis Agencias'
-    : 'Comercializadoras'
+  // Para comercializadoras, el link va directo a sus agencias
+  if (currentUser?.userType === 'comercializadora') {
+    comercializadorasPath = `/comercializadoras/${currentUser.id}/agencias`
+    comercializadorasLabel = 'Mis Agencias'
+  }
+
+  // Para agencias, el link va directo a sus taquillas
+  if (currentUser?.userType === 'agencia') {
+    comercializadorasPath = `/comercializadoras/${currentUser.parentId}/agencias/${currentUser.id}/taquillas`
+    comercializadorasLabel = 'Mis Taquillas'
+  }
 
   return [
     { path: '/dashboard', label: 'Dashboard', icon: Vault, permission: 'dashboard' },

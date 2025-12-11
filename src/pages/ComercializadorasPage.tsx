@@ -24,10 +24,14 @@ export function ComercializadorasPage() {
     if (currentUser?.userType === 'comercializadora') {
       navigate(`/comercializadoras/${currentUser.id}/agencias`, { replace: true })
     }
+    // Si el usuario es una agencia, redirigir directamente a sus taquillas
+    if (currentUser?.userType === 'agencia') {
+      navigate(`/comercializadoras/${currentUser.parentId}/agencias/${currentUser.id}/taquillas`, { replace: true })
+    }
   }, [currentUser, navigate])
 
-  // Si es comercializadora, no mostrar nada mientras se redirige
-  if (currentUser?.userType === 'comercializadora') {
+  // Si es comercializadora o agencia, no mostrar nada mientras se redirige
+  if (currentUser?.userType === 'comercializadora' || currentUser?.userType === 'agencia') {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

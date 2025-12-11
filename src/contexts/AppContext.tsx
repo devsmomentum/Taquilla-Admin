@@ -138,9 +138,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return ['dashboard', 'reports', 'comercializadoras'].includes(module)
     }
 
-    // Agencia tiene acceso fijo a: dashboard y comercializadoras (sus taquillas)
+    // Agencia tiene acceso fijo a: dashboard, reports y comercializadoras (sus taquillas)
     if (currentUser.userType === 'agencia') {
-      return ['dashboard', 'comercializadoras'].includes(module)
+      return ['dashboard', 'reports', 'comercializadoras'].includes(module)
     }
 
     // Taquilla tiene acceso básico
@@ -355,6 +355,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return allComercializadoras.filter(c => c.id === currentUser.id)
     }
 
+    // Si es agencia, ve su comercializadora padre
+    if (currentUser.userType === 'agencia') {
+      return allComercializadoras.filter(c => c.id === currentUser.parentId)
+    }
+
     // Si es admin con permiso '*', ve todas las comercializadoras
     if (currentUser.userType === 'admin' || !currentUser.userType) {
       const hasFullAccess = currentUser.all_permissions.includes('*')
@@ -458,7 +463,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (currentUser.userType === 'comercializadora') {
       return agencies.filter(a => a.parentId === currentUser.id)
     }
-    // Agencia no ve otras agencias
+    // Agencia solo ve su propia agencia
+    if (currentUser.userType === 'agencia') {
+      return agencies.filter(a => a.id === currentUser.id)
+    }
     return []
   }
 

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Plus, PencilSimpleLine, X, MagnifyingGlass, CheckCircle, XCircle, Warning, MapPin, Envelope, CalendarBlank, Storefront, Phone } from '@phosphor-icons/react'
+import { Plus, PencilSimpleLine, X, MagnifyingGlass, CheckCircle, XCircle, Warning, MapPin, Envelope, CalendarBlank, Storefront, Phone, Buildings, Info } from '@phosphor-icons/react'
 import { TaquillaDialog } from '@/components/TaquillaDialog'
 import { TaquillaEditDialog } from '@/components/TaquillaEditDialog'
 import { Taquilla } from '@/lib/types'
@@ -166,31 +166,61 @@ export function AgenciaTaquillasPage() {
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
-        <button
-          onClick={() => navigate('/comercializadoras')}
-          className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-        >
-          Comercializadoras
-        </button>
-        <span className="text-muted-foreground">/</span>
-        <button
-          onClick={() => navigate(`/comercializadoras/${comercializadoraId}/agencias`)}
-          className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-        >
-          {comercializadora.name}
-        </button>
-        <span className="text-muted-foreground">/</span>
-        <span className="font-medium text-foreground">{agency.name}</span>
-      </div>
+      {/* Breadcrumb - Solo visible para admins y comercializadoras */}
+      {currentUser?.userType !== 'agencia' && (
+        <div className="flex items-center gap-2 text-sm">
+          <button
+            onClick={() => navigate('/comercializadoras')}
+            className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+          >
+            Comercializadoras
+          </button>
+          <span className="text-muted-foreground">/</span>
+          <button
+            onClick={() => navigate(`/comercializadoras/${comercializadoraId}/agencias`)}
+            className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+          >
+            {comercializadora.name}
+          </button>
+          <span className="text-muted-foreground">/</span>
+          <span className="font-medium text-foreground">{agency.name}</span>
+        </div>
+      )}
+
+      {/* Info de Comercializadora padre - Solo visible para agencias */}
+      {currentUser?.userType === 'agencia' && comercializadora && (
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                <Buildings className="h-5 w-5 text-white" weight="fill" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground">Comercializadora</p>
+                  <Info className="h-3 w-3 text-muted-foreground" />
+                </div>
+                <p className="font-semibold text-foreground">{comercializadora.name}</p>
+              </div>
+              <Badge variant="outline" className="bg-white/50 dark:bg-black/20">
+                Tu organización
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Taquillas</h2>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {currentUser?.userType === 'agencia' ? 'Mis Taquillas' : 'Taquillas'}
+          </h2>
           <p className="text-muted-foreground">
-            Gestiona las taquillas de {agency.name}
+            {currentUser?.userType === 'agencia'
+              ? `Gestiona las taquillas de tu agencia (${agency.name})`
+              : `Gestiona las taquillas de ${agency.name}`
+            }
           </p>
         </div>
         {canViewModule("comercializadoras") && (

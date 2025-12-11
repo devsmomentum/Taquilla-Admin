@@ -41,9 +41,9 @@ export function ProtectedRoute({ children, requiredPermission }: ProtectedRouteP
       return ['dashboard', 'reports', 'comercializadoras'].includes(module)
     }
 
-    // Agencia tiene acceso fijo a: dashboard y comercializadoras (sus taquillas)
+    // Agencia tiene acceso fijo a: dashboard, reports y comercializadoras (sus taquillas)
     if (currentUser.userType === 'agencia') {
-      return ['dashboard', 'comercializadoras'].includes(module)
+      return ['dashboard', 'reports', 'comercializadoras'].includes(module)
     }
 
     // Taquilla tiene acceso básico
