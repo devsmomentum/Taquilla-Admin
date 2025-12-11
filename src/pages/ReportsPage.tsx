@@ -31,8 +31,8 @@ import {
 } from '@phosphor-icons/react'
 
 export function ReportsPage() {
-  const { dailyResults, dailyResultsLoading, loadDailyResults, lotteries, winners, users, taquillas } = useApp()
-  const { topMostPlayed, topHighestAmount, loading: betsStatsLoading, loadBetsStats } = useBetsStats()
+  const { dailyResults, dailyResultsLoading, loadDailyResults, lotteries, winners, users, visibleTaquillas, visibleTaquillaIds } = useApp()
+  const { topMostPlayed, topHighestAmount, loading: betsStatsLoading, loadBetsStats } = useBetsStats({ visibleTaquillaIds })
 
   const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month' | 'custom'>('month')
   const [customDateRange, setCustomDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({

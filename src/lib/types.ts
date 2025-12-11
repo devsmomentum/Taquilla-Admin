@@ -149,13 +149,7 @@ export type ModulePermission =
   | "users"
   | "roles"
   | "api-keys"
-  | "taquillas"
-  | "taquillas.read"
-  | "taquillas.create"
-  | "agencias"
-  | "agencias.read"
-  | "agencias.create"
-  | "comercializadoras"
+  | "comercializadoras" // Incluye gestión de comercializadoras, agencias y taquillas
   | "porcentajes"
 
 export interface Role {

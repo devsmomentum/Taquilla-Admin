@@ -24,8 +24,8 @@ const AVAILABLE_MODULES: { value: ModulePermission; label: string; description: 
   { value: "users", label: "Usuarios", description: "Gestionar usuarios del sistema" },
   { value: "roles", label: "Roles", description: "Crear y editar roles" },
   { value: "api-keys", label: "API Keys", description: "Gestionar claves de API" },
-  { value: "taquillas", label: "Taquillas", description: "Registrar, ver y aprobar taquillas" },
-  { value: "agencias", label: "Agencias", description: "Gestionar agencias y comercializadores" },
+  { value: "comercializadoras", label: "Comercializadoras", description: "Gestionar comercializadoras, agencias y taquillas" },
+  { value: "porcentajes", label: "Porcentajes", description: "Configurar porcentajes de distribución" },
 ]
 
 export function RoleDialog({ open, onOpenChange, role, onSave }: RoleDialogProps) {

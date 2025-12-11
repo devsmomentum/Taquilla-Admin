@@ -26,13 +26,18 @@ export interface TopAmountNumber {
   totalPotentialWin: number
 }
 
-export function useBetsStats() {
+export interface UseBetsStatsOptions {
+  // IDs de taquillas visibles (si es undefined o vacío, no filtra)
+  visibleTaquillaIds?: string[]
+}
+
+export function useBetsStats(options?: UseBetsStatsOptions) {
   const [topMostPlayed, setTopMostPlayed] = useState<TopPlayedNumber[]>([])
   const [topHighestAmount, setTopHighestAmount] = useState<TopAmountNumber[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const loadBetsStats = useCallback(async (options?: {
+  const loadBetsStats = useCallback(async (queryOptions?: {
     startDate?: string
     endDate?: string
     lotteryId?: string
@@ -86,15 +91,21 @@ export function useBetsStats() {
       // Consultar las apuestas de bets_item_lottery_clasic con límite
       let query = supabase
         .from('bets_item_lottery_clasic')
-        .select('id, prize_id, amount, potential_bet_amount, created_at')
+        .select('id, prize_id, user_id, amount, potential_bet_amount, created_at')
         .order('created_at', { ascending: false })
         .limit(10000) // Limitar para evitar timeouts
 
-      if (options?.startDate) {
-        query = query.gte('created_at', options.startDate)
+      if (queryOptions?.startDate) {
+        query = query.gte('created_at', queryOptions.startDate)
       }
-      if (options?.endDate) {
-        query = query.lte('created_at', options.endDate)
+      if (queryOptions?.endDate) {
+        query = query.lte('created_at', queryOptions.endDate)
+      }
+
+      // Filtrar por taquillas visibles si se especificaron
+      const visibleTaquillaIds = options?.visibleTaquillaIds
+      if (visibleTaquillaIds && visibleTaquillaIds.length > 0) {
+        query = query.in('user_id', visibleTaquillaIds)
       }
 
       const { data: betsItems, error: fetchError } = await query
@@ -115,10 +126,10 @@ export function useBetsStats() {
 
       // Filtrar por lotería si se especificó
       let filteredBetsItems = betsItems
-      if (options?.lotteryId && options.lotteryId !== 'all') {
+      if (queryOptions?.lotteryId && queryOptions.lotteryId !== 'all') {
         filteredBetsItems = betsItems.filter(item => {
           const prizeInfo = prizesMap.get(item.prize_id)
-          return prizeInfo?.lotteryId === options.lotteryId
+          return prizeInfo?.lotteryId === queryOptions.lotteryId
         })
       }
 
@@ -194,7 +205,7 @@ export function useBetsStats() {
       setError('Error al cargar estadísticas de apuestas')
       setLoading(false)
     }
-  }, [])
+  }, [options?.visibleTaquillaIds])
 
   return {
     topMostPlayed,

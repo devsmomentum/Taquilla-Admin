@@ -190,7 +190,7 @@ export function ComercializadoraAgenciasPage() {
             Gestiona las agencias de {comercializadora.name}
           </p>
         </div>
-        {canViewModule("agencias") && (
+        {canViewModule("comercializadoras") && (
           <Button onClick={handleCreate} className="gap-2 cursor-pointer">
             <Plus weight="bold" />
             Nueva Agencia
@@ -255,7 +255,7 @@ export function ComercializadoraAgenciasPage() {
             <p className="text-muted-foreground text-sm mb-4">
               {search ? 'Intenta con otros criterios de búsqueda' : 'Crea tu primera agencia para comenzar'}
             </p>
-            {!search && canViewModule("agencias") && (
+            {!search && canViewModule("comercializadoras") && (
               <Button onClick={handleCreate} variant="outline" className="gap-2 cursor-pointer">
                 <Plus weight="bold" />
                 Crear Primera Agencia

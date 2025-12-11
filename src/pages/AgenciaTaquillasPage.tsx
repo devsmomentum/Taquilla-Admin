@@ -193,7 +193,7 @@ export function AgenciaTaquillasPage() {
             Gestiona las taquillas de {agency.name}
           </p>
         </div>
-        {canViewModule("taquillas") && (
+        {canViewModule("comercializadoras") && (
           <Button onClick={handleCreate} className="gap-2 cursor-pointer">
             <Plus weight="bold" />
             Nueva Taquilla
@@ -258,7 +258,7 @@ export function AgenciaTaquillasPage() {
             <p className="text-muted-foreground text-sm mb-4">
               {search ? 'Intenta con otros criterios de búsqueda' : 'Crea tu primera taquilla para comenzar'}
             </p>
-            {!search && canViewModule("taquillas") && (
+            {!search && canViewModule("comercializadoras") && (
               <Button onClick={handleCreate} variant="outline" className="gap-2 cursor-pointer">
                 <Plus weight="bold" />
                 Crear Primera Taquilla

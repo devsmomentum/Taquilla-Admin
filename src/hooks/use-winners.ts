@@ -22,7 +22,12 @@ export interface Winner {
   lotteryName: string
 }
 
-export function useWinners() {
+export interface UseWinnersOptions {
+  // IDs de taquillas visibles (si es undefined o vacío, no filtra)
+  visibleTaquillaIds?: string[]
+}
+
+export function useWinners(options?: UseWinnersOptions) {
   const [winners, setWinners] = useState<Winner[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -31,6 +36,8 @@ export function useWinners() {
     try {
       setLoading(true)
       setError(null)
+
+      const visibleTaquillaIds = options?.visibleTaquillaIds
 
       // Consultar bets_item_lottery_clasic con status = 'winner' (sin join)
       let query = supabase
@@ -44,6 +51,11 @@ export function useWinners() {
       }
       if (endDate) {
         query = query.lte('created_at', endDate)
+      }
+
+      // Filtrar por taquillas visibles si se especificaron
+      if (visibleTaquillaIds && visibleTaquillaIds.length > 0) {
+        query = query.in('user_id', visibleTaquillaIds)
       }
 
       const { data: winnerItems, error: fetchError } = await query
@@ -147,7 +159,7 @@ export function useWinners() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [options?.visibleTaquillaIds])
 
   useEffect(() => {
     loadWinners()

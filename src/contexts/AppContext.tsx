@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from 'react'
+import { createContext, useContext, ReactNode, useMemo } from 'react'
 import { Bet, Lottery, User, Role, ApiKey, DailyResult, Pot, Transfer } from '@/lib/types'
 import { useSupabaseAuth } from '@/hooks/use-supabase-auth'
 import { useSupabaseRoles } from '@/hooks/use-supabase-roles'
@@ -109,6 +109,7 @@ interface AppContextType {
   comercializadoras: any[]
   visibleAgencies: any[]
   visibleTaquillas: any[]
+  visibleTaquillaIds?: string[] // IDs de taquillas visibles para filtrar en hooks
   activeBets: Bet[]
   defaultAgencyId?: string
 
@@ -226,12 +227,69 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isConnected: betsConnected
   } = useSupabaseBets(!!currentUser)
 
+  // Calcular IDs de taquillas visibles para filtrar datos en los hooks
+  // Esto se calcula temprano para poder pasarlo a useWinners
+  const visibleTaquillaIds = useMemo(() => {
+    if (!currentUser) return undefined
+
+    // Obtener todas las taquillas
+    const allTaquillas = (supabaseUsers || []).filter(u => u.userType === 'taquilla')
+
+    // Obtener todas las agencias
+    const allAgencies = (supabaseUsers || []).filter(u => u.userType === 'agencia')
+
+    // Obtener todas las comercializadoras
+    const allComercializadoras = (supabaseUsers || []).filter(u => u.userType === 'comercializadora')
+
+    // Admin con permiso '*' ve todo
+    if (currentUser.userType === 'admin' || !currentUser.userType) {
+      const hasFullAccess = currentUser.all_permissions.includes('*')
+      if (hasFullAccess) {
+        return undefined // Sin filtro, ve todo
+      }
+      // Admin sin permiso '*' solo ve las comercializadoras que él creó
+      const myComercializadoraIds = allComercializadoras
+        .filter(c => c.parentId === currentUser.id)
+        .map(c => c.id)
+      const myAgencyIds = allAgencies
+        .filter(a => myComercializadoraIds.includes(a.parentId || ''))
+        .map(a => a.id)
+      return allTaquillas
+        .filter(t => myAgencyIds.includes(t.parentId || ''))
+        .map(t => t.id)
+    }
+
+    // Comercializadora ve las taquillas de sus agencias
+    if (currentUser.userType === 'comercializadora') {
+      const myAgencyIds = allAgencies
+        .filter(a => a.parentId === currentUser.id)
+        .map(a => a.id)
+      return allTaquillas
+        .filter(t => myAgencyIds.includes(t.parentId || ''))
+        .map(t => t.id)
+    }
+
+    // Agencia solo ve sus taquillas
+    if (currentUser.userType === 'agencia') {
+      return allTaquillas
+        .filter(t => t.parentId === currentUser.id)
+        .map(t => t.id)
+    }
+
+    // Taquilla solo se ve a sí misma
+    if (currentUser.userType === 'taquilla') {
+      return [currentUser.id]
+    }
+
+    return []
+  }, [currentUser, supabaseUsers])
+
   // Winners from bets_item_lottery_clasic
   const {
     winners,
     loading: winnersLoading,
     loadWinners
-  } = useWinners()
+  } = useWinners({ visibleTaquillaIds })
 
   // Auto-play tomorrow
   useAutoPlayTomorrow(lotteries, updateLottery)
@@ -266,8 +324,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     shareOnProfits: user.shareOnProfits || 0
   }))
 
-  // Derived: comercializadoras from users
-  const comercializadoras = (supabaseUsers || [])
+  // Derived: comercializadoras from users (todas, sin filtrar)
+  const allComercializadoras = (supabaseUsers || [])
     .filter(u => u.userType === 'comercializadora')
     .map(user => ({
       id: user.id,
@@ -276,12 +334,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
       address: user.address,
       logo: undefined,
       userId: user.id,
+      parentId: user.parentId,
       shareOnSales: user.shareOnSales || 0,
       shareOnProfits: user.shareOnProfits || 0,
       isActive: user.isActive,
       createdAt: user.createdAt,
       createdBy: user.createdBy,
     }))
+
+  // Filtrar comercializadoras según permisos del usuario
+  const getVisibleComercializadoras = () => {
+    if (!currentUser) return []
+
+    // Si es comercializadora, solo ve su propia comercializadora
+    if (currentUser.userType === 'comercializadora') {
+      return allComercializadoras.filter(c => c.id === currentUser.id)
+    }
+
+    // Si es admin con permiso '*', ve todas las comercializadoras
+    if (currentUser.userType === 'admin' || !currentUser.userType) {
+      const hasFullAccess = currentUser.all_permissions.includes('*')
+      if (hasFullAccess) {
+        return allComercializadoras
+      }
+      // Admin sin permiso '*' solo ve las comercializadoras que él creó
+      return allComercializadoras.filter(c => c.parentId === currentUser.id)
+    }
+
+    return []
+  }
+
+  const comercializadoras = getVisibleComercializadoras()
 
   // Taquilla CRUD using createUser/updateUser/deleteUser
   const createTaquilla = async (input: any) => {
@@ -355,8 +438,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Visibility filters
   const getVisibleAgencies = () => {
     if (!currentUser) return []
-    // Admin ve todas las agencias
-    if (currentUser.userType === 'admin' || !currentUser.userType) return agencies
+
+    // Admin con permiso '*' ve todas las agencias
+    if (currentUser.userType === 'admin' || !currentUser.userType) {
+      const hasFullAccess = currentUser.all_permissions.includes('*')
+      if (hasFullAccess) {
+        return agencies
+      }
+      // Admin sin permiso '*' solo ve las agencias de las comercializadoras que él creó
+      const myComercializadoraIds = comercializadoras.map(c => c.id)
+      return agencies.filter(a => myComercializadoraIds.includes(a.parentId))
+    }
+
     // Comercializadora solo ve las agencias que le pertenecen (parentId = su id)
     if (currentUser.userType === 'comercializadora') {
       return agencies.filter(a => a.parentId === currentUser.id)
@@ -367,8 +460,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const getVisibleTaquillas = () => {
     if (!currentUser) return []
-    // Admin ve todas las taquillas
-    if (currentUser.userType === 'admin' || !currentUser.userType) return taquillas
+
+    // Admin con permiso '*' ve todas las taquillas
+    if (currentUser.userType === 'admin' || !currentUser.userType) {
+      const hasFullAccess = currentUser.all_permissions.includes('*')
+      if (hasFullAccess) {
+        return taquillas
+      }
+      // Admin sin permiso '*' solo ve las taquillas de las agencias de sus comercializadoras
+      const myComercializadoraIds = comercializadoras.map(c => c.id)
+      const myAgencyIds = agencies.filter(a => myComercializadoraIds.includes(a.parentId)).map(a => a.id)
+      return taquillas.filter(t => myAgencyIds.includes(t.parentId || ''))
+    }
+
     // Comercializadora ve las taquillas de sus agencias
     if (currentUser.userType === 'comercializadora') {
       const myAgencyIds = agencies.filter(a => a.parentId === currentUser.id).map(a => a.id)
@@ -487,6 +591,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     comercializadoras,
     visibleAgencies,
     visibleTaquillas,
+    visibleTaquillaIds,
     activeBets,
     defaultAgencyId: getDefaultAgencyId(),
 

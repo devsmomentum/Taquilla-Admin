@@ -99,6 +99,7 @@ export function ComercializadoraDialog({
                         roleIds: [],
                         isActive: isActive,
                         createdBy: currentUserId || 'system',
+                        parentId: currentUserId, // Asociar la comercializadora al usuario que la registra
                         address: address.trim() || undefined,
                         shareOnSales: shareOnSales,
                         shareOnProfits: shareOnProfits

@@ -21,7 +21,12 @@ export interface SalesStats {
   }>
 }
 
-export function useSalesStats() {
+export interface UseSalesStatsOptions {
+  // IDs de taquillas visibles (si es undefined o vacío, no filtra)
+  visibleTaquillaIds?: string[]
+}
+
+export function useSalesStats(options?: UseSalesStatsOptions) {
   const [stats, setStats] = useState<SalesStats>({
     todaySales: 0,
     todayBetsCount: 0,
@@ -39,6 +44,8 @@ export function useSalesStats() {
       setLoading(true)
       setError(null)
 
+      const visibleTaquillaIds = options?.visibleTaquillaIds
+
       const now = new Date()
       const todayStart = startOfDay(now).toISOString()
       const todayEnd = endOfDay(now).toISOString()
@@ -46,11 +53,18 @@ export function useSalesStats() {
       const monthStart = startOfMonth(now).toISOString()
 
       // Ventas del día
-      const { data: todayData, error: todayError } = await supabase
+      let todayQuery = supabase
         .from('bets')
         .select('id, amount, user_id')
         .gte('created_at', todayStart)
         .lte('created_at', todayEnd)
+
+      // Filtrar por taquillas visibles si se especificaron
+      if (visibleTaquillaIds && visibleTaquillaIds.length > 0) {
+        todayQuery = todayQuery.in('user_id', visibleTaquillaIds)
+      }
+
+      const { data: todayData, error: todayError } = await todayQuery
 
       if (todayError) {
         console.error('Error fetching today sales:', todayError)
@@ -96,11 +110,17 @@ export function useSalesStats() {
         .sort((a, b) => b.sales - a.sales)
 
       // Ventas de la semana
-      const { data: weekData, error: weekError } = await supabase
+      let weekQuery = supabase
         .from('bets')
-        .select('id, amount')
+        .select('id, amount, user_id')
         .gte('created_at', weekStart)
         .lte('created_at', todayEnd)
+
+      if (visibleTaquillaIds && visibleTaquillaIds.length > 0) {
+        weekQuery = weekQuery.in('user_id', visibleTaquillaIds)
+      }
+
+      const { data: weekData, error: weekError } = await weekQuery
 
       if (weekError) {
         console.error('Error fetching week sales:', weekError)
@@ -110,11 +130,17 @@ export function useSalesStats() {
       const weekBetsCount = (weekData || []).length
 
       // Ventas del mes
-      const { data: monthData, error: monthError } = await supabase
+      let monthQuery = supabase
         .from('bets')
-        .select('id, amount')
+        .select('id, amount, user_id')
         .gte('created_at', monthStart)
         .lte('created_at', todayEnd)
+
+      if (visibleTaquillaIds && visibleTaquillaIds.length > 0) {
+        monthQuery = monthQuery.in('user_id', visibleTaquillaIds)
+      }
+
+      const { data: monthData, error: monthError } = await monthQuery
 
       if (monthError) {
         console.error('Error fetching month sales:', monthError)
@@ -138,7 +164,7 @@ export function useSalesStats() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [options?.visibleTaquillaIds])
 
   useEffect(() => {
     loadStats()

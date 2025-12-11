@@ -33,10 +33,12 @@ export function DashboardPage() {
     winners,
     winnersLoading,
     loadWinners,
-    taquillas
+    taquillas,
+    visibleTaquillas,
+    visibleTaquillaIds
   } = useApp()
 
-  const { stats: salesStats, loading: salesLoading, refresh: refreshSales } = useSalesStats()
+  const { stats: salesStats, loading: salesLoading, refresh: refreshSales } = useSalesStats({ visibleTaquillaIds })
 
   // Estadísticas de resultados del día
   const todayStats = useMemo(() => {
@@ -73,8 +75,8 @@ export function DashboardPage() {
   // Loterías activas
   const activeLotteries = lotteries.filter(l => l.isActive)
 
-  // Taquillas activas
-  const activeTaquillas = taquillas.filter(t => t.isApproved)
+  // Taquillas activas (filtradas por visibilidad del usuario)
+  const activeTaquillas = visibleTaquillas.filter(t => t.isApproved)
 
   const handleRefreshAll = () => {
     loadDailyResults()
@@ -222,7 +224,7 @@ export function DashboardPage() {
                 </div>
               </div>
               <Badge variant="outline" className="text-xs">
-                de {taquillas.length}
+                de {visibleTaquillas.length}
               </Badge>
             </div>
           </CardContent>
