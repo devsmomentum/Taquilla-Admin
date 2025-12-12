@@ -128,7 +128,21 @@ export function ReportsPage() {
     // Ganancia neta = ventas - premios pagados (usando datos filtrados)
     const totalRaised = periodSales - totalPayout
 
-    const resultsWithWinners = filteredResults.filter(r => (r.totalToPay || 0) > 0).length
+    // Contar sorteos que tienen al menos un ganador de las taquillas visibles
+    // Crear un Set de combinaciones únicas lotteryId-fecha de los ganadores filtrados
+    const resultsWithWinnersSet = new Set(
+      filteredWinners
+        .filter(w => w.lotteryId)
+        .map(w => {
+          const winnerDate = new Date(w.createdAt).toISOString().split('T')[0]
+          return `${w.lotteryId}-${winnerDate}`
+        })
+    )
+    // Contar cuántos resultados filtrados tienen ganadores de las taquillas visibles
+    const resultsWithWinners = filteredResults.filter(r => {
+      const resultDate = r.resultDate.split('T')[0]
+      return resultsWithWinnersSet.has(`${r.lotteryId}-${resultDate}`)
+    }).length
     const averagePayout = totalWinningBets > 0 ? totalPayout / totalWinningBets : 0
 
     return {
