@@ -45,6 +45,16 @@ export function useBetsStats(options?: UseBetsStatsOptions) {
     setLoading(true)
     setError(null)
 
+    // Si visibleTaquillaIds es un array vacío (usuario sin taquillas), devolver datos vacíos
+    // undefined significa sin filtro (admin con permiso *)
+    const visibleTaquillaIds = options?.visibleTaquillaIds
+    if (visibleTaquillaIds !== undefined && visibleTaquillaIds.length === 0) {
+      setTopMostPlayed([])
+      setTopHighestAmount([])
+      setLoading(false)
+      return
+    }
+
     try {
       // Primero obtener todos los prizes para tener el mapeo
       const { data: allPrizes, error: prizesError } = await supabase
@@ -103,7 +113,6 @@ export function useBetsStats(options?: UseBetsStatsOptions) {
       }
 
       // Filtrar por taquillas visibles si se especificaron
-      const visibleTaquillaIds = options?.visibleTaquillaIds
       if (visibleTaquillaIds && visibleTaquillaIds.length > 0) {
         query = query.in('user_id', visibleTaquillaIds)
       }

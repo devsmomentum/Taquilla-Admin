@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress'
 import { useApp } from '@/contexts/AppContext'
 import { useBetsStats } from '@/hooks/use-bets-stats'
+import { useSalesStats } from '@/hooks/use-sales-stats'
 import { formatCurrency } from '@/lib/pot-utils'
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -33,6 +34,7 @@ import {
 export function ReportsPage() {
   const { dailyResults, dailyResultsLoading, loadDailyResults, lotteries, winners, users, visibleTaquillas, visibleTaquillaIds } = useApp()
   const { topMostPlayed, topHighestAmount, loading: betsStatsLoading, loadBetsStats } = useBetsStats({ visibleTaquillaIds })
+  const { stats: salesStats, loading: salesLoading, refresh: refreshSales } = useSalesStats({ visibleTaquillaIds })
 
   const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month' | 'custom'>('month')
   const [customDateRange, setCustomDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
@@ -100,18 +102,48 @@ export function ReportsPage() {
     })
   }, [winners, periodFilter, selectedLottery, todayStart, weekStart, monthStart, customDateRange])
 
-  // Estadísticas principales
+  // Estadísticas principales - usando datos filtrados por taquillas visibles
   const stats = useMemo(() => {
     const totalResults = filteredResults.length
-    const totalPayout = filteredResults.reduce((sum, r) => sum + (r.totalToPay || 0), 0)
-    const totalRaised = filteredResults.reduce((sum, r) => sum + (r.totalRaised || 0), 0)
-    const resultsWithWinners = filteredResults.filter(r => (r.totalToPay || 0) > 0).length
-    const averagePayout = resultsWithWinners > 0 ? totalPayout / resultsWithWinners : 0
 
-    // Total de jugadas ganadoras
+    // Total de jugadas ganadoras (filtrado por taquillas visibles)
     const totalWinningBets = filteredWinners.length
-    const totalWinningAmount = filteredWinners.reduce((sum, w) => sum + w.potentialWin, 0)
+    // Total pagado en premios - usar filteredWinners que ya está filtrado por visibleTaquillaIds
+    const totalPayout = filteredWinners.reduce((sum, w) => sum + w.potentialWin, 0)
     const totalBetAmount = filteredWinners.reduce((sum, w) => sum + w.amount, 0)
+
+    // Obtener ventas según el período seleccionado (ya filtradas por visibleTaquillaIds)
+    let periodSales = 0
+    if (periodFilter === 'today') {
+      periodSales = salesStats.todaySales
+    } else if (periodFilter === 'week') {
+      periodSales = salesStats.weekSales
+    } else if (periodFilter === 'month') {
+      periodSales = salesStats.monthSales
+    } else {
+      // Para custom, usar ventas del mes como aproximación
+      periodSales = salesStats.monthSales
+    }
+
+    // Ganancia neta = ventas - premios pagados (usando datos filtrados)
+    const totalRaised = periodSales - totalPayout
+
+    // Contar sorteos que tienen al menos un ganador de las taquillas visibles
+    // Crear un Set de combinaciones únicas lotteryId-fecha de los ganadores filtrados
+    const resultsWithWinnersSet = new Set(
+      filteredWinners
+        .filter(w => w.lotteryId)
+        .map(w => {
+          const winnerDate = new Date(w.createdAt).toISOString().split('T')[0]
+          return `${w.lotteryId}-${winnerDate}`
+        })
+    )
+    // Contar cuántos resultados filtrados tienen ganadores de las taquillas visibles
+    const resultsWithWinners = filteredResults.filter(r => {
+      const resultDate = r.resultDate.split('T')[0]
+      return resultsWithWinnersSet.has(`${r.lotteryId}-${resultDate}`)
+    }).length
+    const averagePayout = totalWinningBets > 0 ? totalPayout / totalWinningBets : 0
 
     return {
       totalResults,
@@ -120,55 +152,54 @@ export function ReportsPage() {
       resultsWithWinners,
       averagePayout,
       totalWinningBets,
-      totalWinningAmount,
-      totalBetAmount
+      totalWinningAmount: totalPayout,
+      totalBetAmount,
+      periodSales
     }
-  }, [filteredResults, filteredWinners])
+  }, [filteredResults, filteredWinners, periodFilter, salesStats])
 
-  // Top loterías por premios pagados
+  // Top loterías por premios pagados - usando filteredWinners (filtrado por taquillas visibles)
   const topLotteries = useMemo(() => {
-    const lotteryStats = new Map<string, { name: string; payout: number; raised: number; results: number }>()
+    const lotteryStats = new Map<string, { name: string; payout: number; wins: number }>()
 
-    filteredResults.forEach((result) => {
-      const lotteryName = result.lottery?.name || 'Desconocida'
-      const current = lotteryStats.get(result.lotteryId) || { name: lotteryName, payout: 0, raised: 0, results: 0 }
-      lotteryStats.set(result.lotteryId, {
+    filteredWinners.forEach((winner) => {
+      if (!winner.lotteryId) return
+      const lotteryName = winner.lotteryName || 'Desconocida'
+      const current = lotteryStats.get(winner.lotteryId) || { name: lotteryName, payout: 0, wins: 0 }
+      lotteryStats.set(winner.lotteryId, {
         name: lotteryName,
-        payout: current.payout + (result.totalToPay || 0),
-        raised: current.raised + (result.totalRaised || 0),
-        results: current.results + 1,
+        payout: current.payout + winner.potentialWin,
+        wins: current.wins + 1,
       })
     })
 
     return Array.from(lotteryStats.values())
       .sort((a, b) => b.payout - a.payout)
       .slice(0, 5)
-  }, [filteredResults])
+  }, [filteredWinners])
 
-  // Top números ganadores
+  // Top números ganadores - usando filteredWinners (filtrado por taquillas visibles)
   const topWinningNumbers = useMemo(() => {
     const numberStats = new Map<string, { number: string; wins: number; totalPayout: number }>()
 
-    filteredResults.filter(r => (r.totalToPay || 0) > 0).forEach((result) => {
-      if (result.prize) {
-        const key = result.prize.animalNumber
-        const current = numberStats.get(key) || {
-          number: result.prize.animalNumber,
-          wins: 0,
-          totalPayout: 0
-        }
-        numberStats.set(key, {
-          ...current,
-          wins: current.wins + 1,
-          totalPayout: current.totalPayout + (result.totalToPay || 0)
-        })
+    filteredWinners.forEach((winner) => {
+      const key = winner.animalNumber
+      const current = numberStats.get(key) || {
+        number: winner.animalNumber,
+        wins: 0,
+        totalPayout: 0
       }
+      numberStats.set(key, {
+        ...current,
+        wins: current.wins + 1,
+        totalPayout: current.totalPayout + winner.potentialWin
+      })
     })
 
     return Array.from(numberStats.values())
       .sort((a, b) => b.wins - a.wins)
       .slice(0, 10)
-  }, [filteredResults])
+  }, [filteredWinners])
 
   // Top taquillas por premios ganados
   const topTaquillas = useMemo(() => {
@@ -246,6 +277,7 @@ export function ReportsPage() {
 
   const handleRefresh = () => {
     loadDailyResults()
+    refreshSales() // Recargar estadísticas de ventas filtradas
     // Recargar estadísticas de apuestas con los filtros actuales
     let startDate: string | undefined
     let endDate: string | undefined
@@ -484,13 +516,10 @@ export function ReportsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{lottery.name}</p>
-                      <p className="text-xs text-muted-foreground">{lottery.results} sorteos</p>
+                      <p className="text-xs text-muted-foreground">{lottery.wins} premios ganados</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-bold text-red-600">{formatCurrency(lottery.payout)}</p>
-                      <p className={`text-xs ${lottery.raised >= 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                        {lottery.raised >= 0 ? '+' : ''}{formatCurrency(lottery.raised)}
-                      </p>
                     </div>
                   </div>
                 ))}

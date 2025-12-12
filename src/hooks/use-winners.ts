@@ -39,6 +39,14 @@ export function useWinners(options?: UseWinnersOptions) {
 
       const visibleTaquillaIds = options?.visibleTaquillaIds
 
+      // Si visibleTaquillaIds es un array vacío (usuario sin taquillas), devolver lista vacía
+      // undefined significa sin filtro (admin con permiso *)
+      if (visibleTaquillaIds !== undefined && visibleTaquillaIds.length === 0) {
+        setWinners([])
+        setLoading(false)
+        return
+      }
+
       // Consultar bets_item_lottery_clasic con status = 'winner' (sin join)
       let query = supabase
         .from('bets_item_lottery_clasic')

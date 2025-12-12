@@ -58,6 +58,7 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
   const [selectedAnimalForLimit, setSelectedAnimalForLimit] = useState<string>('')
   const [animalLimitAmount, setAnimalLimitAmount] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [maxToCancel, setMaxToCancel] = useState<string>('')
 
   // Sincronizar estado cuando cambia la lotería seleccionada o se abre el diálogo
   useEffect(() => {
@@ -75,6 +76,7 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
         setDrawTime(lottery.drawTime)
         setIsActive(lottery.isActive)
         setPlaysTomorrow(lottery.playsTomorrow)
+        setMaxToCancel(lottery.maxToCancel?.toString() || '0')
 
         // Cargar items con multiplicador x40
         const prizes = lottery.prizes ?? []
@@ -94,6 +96,7 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
         setPlaysTomorrow(true)
         setItemsWithX40(new Set())
         setIsCustomName(currentUniqueNames.length === 0)
+        setMaxToCancel('0')
 
         // Resetear límites
         setBetLimits([])
@@ -150,6 +153,7 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
       playsTomorrow,
       prizes: allPrizes,
       createdAt: lottery?.createdAt || new Date().toISOString(),
+      maxToCancel: parseFloat(maxToCancel) || 0,
     }
 
     setIsSubmitting(true)
@@ -390,6 +394,22 @@ export function LotteryDialog({ open, onOpenChange, lottery, onSave, onPlayTomor
                 }
               }}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="max-to-cancel">Máximo de Tickets a Cancelar por Taquilla</Label>
+            <Input
+              id="max-to-cancel"
+              type="number"
+              min="0"
+              step="1"
+              placeholder="0 = sin límite"
+              value={maxToCancel}
+              onChange={(e) => setMaxToCancel(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Cantidad máxima de tickets que una taquilla puede cancelar para esta lotería. Dejar en 0 para sin límite.
+            </p>
           </div>
 
           <div className="space-y-2">

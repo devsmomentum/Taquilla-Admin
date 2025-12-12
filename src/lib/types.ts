@@ -8,6 +8,7 @@ export interface Lottery {
   playsTomorrow: boolean
   prizes: Prize[]
   createdAt: string
+  maxToCancel?: number // Máximo de tickets que puede cancelar una taquilla para esta lotería
 }
 
 export interface Prize {

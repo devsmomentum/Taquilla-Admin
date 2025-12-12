@@ -13,6 +13,7 @@ export interface SupabaseLottery {
   plays_tomorrow: boolean
   created_at: string
   updated_at: string
+  max_to_cancel?: number
   // Relación con premios
   prizes?: Array<{
     id: string
@@ -110,6 +111,7 @@ export function useSupabaseLotteries() {
           multiplier: prize.multiplier
         })) || [],
         createdAt: lottery.created_at,
+        maxToCancel: lottery.max_to_cancel ?? 0,
       }))
 
       setLotteries(transformedLotteries)
@@ -172,7 +174,8 @@ export function useSupabaseLotteries() {
             closing_time: lotteryData.closingTime,
             draw_time: lotteryData.drawTime,
             is_active: lotteryData.isActive,
-            plays_tomorrow: lotteryData.playsTomorrow
+            plays_tomorrow: lotteryData.playsTomorrow,
+            max_to_cancel: lotteryData.maxToCancel ?? 0
           }
         ])
         .select()
@@ -209,7 +212,8 @@ export function useSupabaseLotteries() {
         isActive: newLottery.is_active,
         playsTomorrow: newLottery.plays_tomorrow,
         prizes: lotteryData.prizes || [],
-        createdAt: newLottery.created_at
+        createdAt: newLottery.created_at,
+        maxToCancel: newLottery.max_to_cancel ?? 0
       }
 
       setLotteries(current => [...current, createdLottery])
@@ -240,16 +244,18 @@ export function useSupabaseLotteries() {
 
     try {
       // Actualizar datos básicos de la lotería
+      const updateData: any = {}
+      if (lotteryData.name !== undefined) updateData.name = lotteryData.name
+      if (lotteryData.openingTime !== undefined) updateData.opening_time = lotteryData.openingTime
+      if (lotteryData.closingTime !== undefined) updateData.closing_time = lotteryData.closingTime
+      if (lotteryData.drawTime !== undefined) updateData.draw_time = lotteryData.drawTime
+      if (lotteryData.isActive !== undefined) updateData.is_active = lotteryData.isActive
+      if (lotteryData.playsTomorrow !== undefined) updateData.plays_tomorrow = lotteryData.playsTomorrow
+      if (lotteryData.maxToCancel !== undefined) updateData.max_to_cancel = lotteryData.maxToCancel
+
       const { data: updatedLotteries, error } = await supabase
         .from('lotteries')
-        .update({
-          name: lotteryData.name,
-          opening_time: lotteryData.openingTime,
-          closing_time: lotteryData.closingTime,
-          draw_time: lotteryData.drawTime,
-          is_active: lotteryData.isActive,
-          plays_tomorrow: lotteryData.playsTomorrow,
-        })
+        .update(updateData)
         .eq('id', lotteryId)
         .select()
 

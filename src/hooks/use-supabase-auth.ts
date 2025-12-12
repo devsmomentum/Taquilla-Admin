@@ -29,6 +29,33 @@ export function useSupabaseAuth() {
   // Ref para trackear el userId actual sin causar re-renders
   const currentUserIdRef = useRef<string>('')
 
+  // Función interna para verificar recursivamente la cadena de parentId
+  const checkParentChainActiveInternal = async (parentId: string | null): Promise<boolean> => {
+    if (!parentId) {
+      return true
+    }
+
+    try {
+      const { data: parentData, error } = await supabase
+        .from('users')
+        .select('id, is_active, parent_id')
+        .eq('id', parentId)
+        .single()
+
+      if (error || !parentData) {
+        return true
+      }
+
+      if (!parentData.is_active) {
+        return false
+      }
+
+      return await checkParentChainActiveInternal(parentData.parent_id)
+    } catch (err) {
+      return true
+    }
+  }
+
   useEffect(() => {
     if (!isSupabaseConfigured()) {
       setIsLoading(false)
@@ -96,6 +123,16 @@ export function useSupabaseAuth() {
             }
 
             if (!userData.is_active) {
+              await supabase.auth.signOut()
+              setCurrentUser(null)
+              setCurrentUserId('')
+              setIsLoading(false)
+              return
+            }
+
+            // Verificar recursivamente toda la cadena de parentId
+            const isParentChainActive = await checkParentChainActiveInternal(userData.parent_id)
+            if (!isParentChainActive) {
               await supabase.auth.signOut()
               setCurrentUser(null)
               setCurrentUserId('')
@@ -177,7 +214,7 @@ export function useSupabaseAuth() {
         // Verificar tipo de usuario y estado activo antes de permitir acceso
         const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('user_type, is_active')
+          .select('user_type, is_active, parent_id, name')
           .eq('id', data.user.id)
           .single()
 
@@ -196,6 +233,16 @@ export function useSupabaseAuth() {
         if (!userData.is_active) {
           await supabase.auth.signOut()
           return { success: false, error: 'Su cuenta está desactivada. Contacte al administrador' }
+        }
+
+        // Verificar recursivamente toda la cadena de parentId
+        const isParentChainActive = await checkParentChainActiveInternal(userData.parent_id)
+        if (!isParentChainActive) {
+          await supabase.auth.signOut()
+          return {
+            success: false,
+            error: 'Su cuenta no tiene acceso activo al sistema. Contacte al administrador.'
+          }
         }
 
         // La actualización del estado se maneja en onAuthStateChange

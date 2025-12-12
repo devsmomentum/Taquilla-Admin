@@ -46,6 +46,22 @@ export function useSalesStats(options?: UseSalesStatsOptions) {
 
       const visibleTaquillaIds = options?.visibleTaquillaIds
 
+      // Si visibleTaquillaIds es un array vacío (usuario sin taquillas), devolver estadísticas vacías
+      // undefined significa sin filtro (admin con permiso *)
+      if (visibleTaquillaIds !== undefined && visibleTaquillaIds.length === 0) {
+        setStats({
+          todaySales: 0,
+          todayBetsCount: 0,
+          weekSales: 0,
+          weekBetsCount: 0,
+          monthSales: 0,
+          monthBetsCount: 0,
+          salesByTaquilla: []
+        })
+        setLoading(false)
+        return
+      }
+
       const now = new Date()
       const todayStart = startOfDay(now).toISOString()
       const todayEnd = endOfDay(now).toISOString()
