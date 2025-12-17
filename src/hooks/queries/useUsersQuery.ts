@@ -157,7 +157,7 @@ export function useUpdateUserMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ userId, userData }: { userId: string; userData: Partial<User> }) => {
+    mutationFn: async ({ userId, userData }: { userId: string; userData: Partial<User> & { password?: string } }) => {
       if (!isSupabaseConfigured()) {
         throw new Error('Supabase no está configurado')
       }
@@ -173,6 +173,48 @@ export function useUpdateUserMutation() {
         if (checkError) throw checkError
         if (existingUsers && existingUsers.length > 0) {
           throw new Error('Este email ya está registrado')
+        }
+      }
+
+      // Si se proporciona una contraseña, actualizar en Supabase Auth
+      if (userData.password) {
+        const { data: session } = await supabase.auth.getSession()
+        const currentUserId = session?.session?.user?.id
+
+        if (currentUserId === userId) {
+          // El usuario está cambiando su propia contraseña
+          const { error: authError } = await supabase.auth.updateUser({
+            password: userData.password
+          })
+
+          if (authError) {
+            throw new Error(`Error al actualizar contraseña: ${authError.message}`)
+          }
+        } else {
+          // Un admin está cambiando la contraseña de otro usuario - usar edge function
+          if (!session?.session) {
+            throw new Error('Debes estar autenticado para cambiar contraseñas')
+          }
+
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-password`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.session.access_token}`,
+              },
+              body: JSON.stringify({
+                userId: userId,
+                password: userData.password
+              })
+            }
+          )
+
+          if (!response.ok) {
+            const result = await response.json()
+            throw new Error(result.error || 'Error al actualizar contraseña')
+          }
         }
       }
 
