@@ -3,13 +3,13 @@ import { supabase } from '@/lib/supabase'
 import { startOfDay, endOfDay, startOfWeek, startOfMonth } from 'date-fns'
 
 export interface SalesStats {
-  // Ventas del día
+  // Ventas del día (excluyendo jugadas canceladas)
   todaySales: number
   todayBetsCount: number
-  // Ventas de la semana
+  // Ventas de la semana (excluyendo jugadas canceladas)
   weekSales: number
   weekBetsCount: number
-  // Ventas del mes
+  // Ventas del mes (excluyendo jugadas canceladas)
   monthSales: number
   monthBetsCount: number
   // Por taquilla (hoy)
@@ -68,12 +68,13 @@ export function useSalesStats(options?: UseSalesStatsOptions) {
       const weekStart = startOfWeek(now, { weekStartsOn: 1 }).toISOString()
       const monthStart = startOfMonth(now).toISOString()
 
-      // Ventas del día
+      // Ventas del día (excluyendo jugadas canceladas)
       let todayQuery = supabase
         .from('bets')
         .select('id, amount, user_id')
         .gte('created_at', todayStart)
         .lte('created_at', todayEnd)
+        .neq('status', 'cancelled')
 
       // Filtrar por taquillas visibles si se especificaron
       if (visibleTaquillaIds && visibleTaquillaIds.length > 0) {
@@ -125,12 +126,13 @@ export function useSalesStats(options?: UseSalesStatsOptions) {
         }))
         .sort((a, b) => b.sales - a.sales)
 
-      // Ventas de la semana
+      // Ventas de la semana (excluyendo jugadas canceladas)
       let weekQuery = supabase
         .from('bets')
         .select('id, amount, user_id')
         .gte('created_at', weekStart)
         .lte('created_at', todayEnd)
+        .neq('status', 'cancelled')
 
       if (visibleTaquillaIds && visibleTaquillaIds.length > 0) {
         weekQuery = weekQuery.in('user_id', visibleTaquillaIds)
@@ -145,12 +147,13 @@ export function useSalesStats(options?: UseSalesStatsOptions) {
       const weekSales = (weekData || []).reduce((sum, bet) => sum + (Number(bet.amount) || 0), 0)
       const weekBetsCount = (weekData || []).length
 
-      // Ventas del mes
+      // Ventas del mes (excluyendo jugadas canceladas)
       let monthQuery = supabase
         .from('bets')
         .select('id, amount, user_id')
         .gte('created_at', monthStart)
         .lte('created_at', todayEnd)
+        .neq('status', 'cancelled')
 
       if (visibleTaquillaIds && visibleTaquillaIds.length > 0) {
         monthQuery = monthQuery.in('user_id', visibleTaquillaIds)
