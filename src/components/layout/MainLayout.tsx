@@ -19,7 +19,8 @@ import {
   Key,
   Buildings,
   SignOut,
-  UserCircle
+  UserCircle,
+  Gear
 } from '@phosphor-icons/react'
 
 // Items de navegación base - el path y label se ajustan según el tipo de usuario
@@ -49,6 +50,7 @@ const getNavItems = (currentUser: any) => {
     { path: '/roles', label: 'Roles', icon: ShieldCheck, permission: 'roles' },
     { path: '/api-keys', label: 'API Keys', icon: Key, permission: 'api-keys' },
     { path: comercializadorasPath, label: comercializadorasLabel, icon: Buildings, permission: 'comercializadoras' },
+    { path: '/settings', label: 'Configuración', icon: Gear, permission: 'settings' },
   ]
 }
 

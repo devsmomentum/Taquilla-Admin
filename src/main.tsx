@@ -36,6 +36,7 @@ import { ApiKeysPage } from './pages/ApiKeysPage'
 import { ComercializadorasPage } from './pages/ComercializadorasPage'
 import { ComercializadoraAgenciasPage } from './pages/ComercializadoraAgenciasPage'
 import { AgenciaTaquillasPage } from './pages/AgenciaTaquillasPage'
+import { SettingsPage } from './pages/SettingsPage'
 
 import "./main.css"
 import "./styles/theme.css"
@@ -139,6 +140,11 @@ if (!rootEl) {
                 <Route path="/comercializadoras/:id/agencias/:agencyId/taquillas" element={
                   <ProtectedRoute requiredPermission="comercializadoras">
                     <AgenciaTaquillasPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/settings" element={
+                  <ProtectedRoute requiredPermission="settings">
+                    <SettingsPage />
                   </ProtectedRoute>
                 } />
               </Route>

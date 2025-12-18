@@ -26,6 +26,7 @@ const AVAILABLE_MODULES: { value: ModulePermission; label: string; description: 
   { value: "api-keys", label: "API Keys", description: "Gestionar claves de API" },
   { value: "comercializadoras", label: "Comercializadoras", description: "Gestionar comercializadoras, agencias y taquillas" },
   { value: "porcentajes", label: "Porcentajes", description: "Configurar porcentajes de distribución" },
+  { value: "settings", label: "Configuración", description: "Configuraciones generales del sistema" },
 ]
 
 export function RoleDialog({ open, onOpenChange, role, onSave }: RoleDialogProps) {

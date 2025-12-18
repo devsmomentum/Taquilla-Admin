@@ -8,7 +8,12 @@ export interface Lottery {
   playsTomorrow: boolean
   prizes: Prize[]
   createdAt: string
-  maxToCancel?: number // Máximo de tickets que puede cancelar una taquilla para esta lotería
+}
+
+export interface AppSettings {
+  id: number
+  maxNumberCancelledTicket: number // Máximo de tickets que una taquilla puede cancelar por día
+  createdAt: string
 }
 
 export interface Prize {
@@ -153,6 +158,7 @@ export type ModulePermission =
   | "api-keys"
   | "comercializadoras" // Incluye gestión de comercializadoras, agencias y taquillas
   | "porcentajes"
+  | "settings" // Configuraciones generales del sistema
 
 export interface Role {
   id: string
