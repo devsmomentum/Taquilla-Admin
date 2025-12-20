@@ -121,13 +121,13 @@ export function useAgencyStats(options: UseAgencyStatsOptions) {
       // ============================================
       // 2. FETCH PRIZES from bets_item_lottery_clasic
       // Sum potential_bet_amount where user_id is in taquillas
-      // and status is 'winner' or 'pay'
+      // and status is 'winner' or 'paid'
       // ============================================
       const { data: prizesData, error: prizesError } = await supabase
         .from('bets_item_lottery_clasic')
         .select('user_id, potential_bet_amount, status')
         .in('user_id', allTaquillaIds)
-        .in('status', ['winner', 'pay'])
+        .in('status', ['winner', 'paid'])
         .gte('created_at', weekStart)
         .lte('created_at', todayEnd)
 

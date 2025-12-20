@@ -9,7 +9,9 @@ export interface ComercializadoraStats {
   weekPrizes: number
   salesCommission: number
   shareOnSales: number
+  shareOnProfits: number
   balance: number // weekSales - weekPrizes - salesCommission
+  profit: number // ganancia de la comercializadora basada en balance * shareOnProfits
 }
 
 export interface UseComercializadoraStatsOptions {
@@ -17,6 +19,7 @@ export interface UseComercializadoraStatsOptions {
     id: string
     name: string
     shareOnSales: number
+    shareOnProfits: number
   }>
   agencies: Array<{
     id: string
@@ -99,7 +102,9 @@ export function useComercializadoraStats(options: UseComercializadoraStatsOption
           weekPrizes: 0,
           salesCommission: 0,
           shareOnSales: com.shareOnSales || 0,
-          balance: 0
+          shareOnProfits: com.shareOnProfits || 0,
+          balance: 0,
+          profit: 0
         }))
         setStats(emptyStats)
         return
@@ -141,7 +146,7 @@ export function useComercializadoraStats(options: UseComercializadoraStatsOption
         .from('bets_item_lottery_clasic')
         .select('user_id, potential_bet_amount, status')
         .in('user_id', allTaquillaIds)
-        .in('status', ['winner', 'pay'])
+        .in('status', ['winner', 'paid'])
         .gte('created_at', weekStart)
         .lte('created_at', todayEnd)
 
@@ -184,6 +189,10 @@ export function useComercializadoraStats(options: UseComercializadoraStatsOption
         // Calculate balance: sales - prizes - commission
         const balance = weekSales - weekPrizes - salesCommission
 
+        // Calculate profit for comercializadora (percentage of positive balance)
+        const shareOnProfits = com.shareOnProfits || 0
+        const profit = balance > 0 ? balance * (shareOnProfits / 100) : 0
+
         return {
           comercializadoraId: com.id,
           comercializadoraName: com.name,
@@ -191,7 +200,9 @@ export function useComercializadoraStats(options: UseComercializadoraStatsOption
           weekPrizes,
           salesCommission,
           shareOnSales,
-          balance
+          shareOnProfits,
+          balance,
+          profit
         }
       })
 

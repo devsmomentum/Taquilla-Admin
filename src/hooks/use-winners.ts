@@ -47,11 +47,11 @@ export function useWinners(options?: UseWinnersOptions) {
         return
       }
 
-      // Consultar bets_item_lottery_clasic con status = 'winner' (sin join)
+      // Consultar bets_item_lottery_clasic con status = 'winner' o 'paid' (sin join)
       let query = supabase
         .from('bets_item_lottery_clasic')
         .select('id, bets_id, user_id, prize_id, amount, potential_bet_amount, status, created_at')
-        .eq('status', 'winner')
+        .in('status', ['winner', 'paid'])
         .order('created_at', { ascending: false })
 
       if (startDate) {

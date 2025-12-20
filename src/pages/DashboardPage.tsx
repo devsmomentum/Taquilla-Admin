@@ -498,6 +498,7 @@ export function DashboardPage() {
                       <TableHead className="text-right">Premios</TableHead>
                       <TableHead className="text-right">Comisión (%)</TableHead>
                       <TableHead className="text-right">Balance</TableHead>
+                      <TableHead className="text-right">Ganancia (%)</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -527,6 +528,12 @@ export function DashboardPage() {
                           <span className={`font-bold ${stat.balance >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                             {formatCurrency(stat.balance)}
                           </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex flex-col items-end">
+                            <span className="font-bold text-purple-600">{formatCurrency(stat.profit)}</span>
+                            <span className="text-xs text-muted-foreground">({stat.shareOnProfits}%)</span>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
