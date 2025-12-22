@@ -9,8 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress'
 import { useApp } from '@/contexts/AppContext'
 import { useBetsStats } from '@/hooks/use-bets-stats'
-import { useSalesStats } from '@/hooks/use-sales-stats'
+import { useComercializadoraStats } from '@/hooks/use-comercializadora-stats'
+import { useAgencyStats } from '@/hooks/use-agency-stats'
+import { useTaquillaStats } from '@/hooks/use-taquilla-stats'
 import { formatCurrency } from '@/lib/pot-utils'
+// Note: useSalesStats was removed as calculations are now done per comercializadora/agencia/taquilla
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, parseISO } from 'date-fns'
 import {
   ChartBar,
@@ -31,9 +34,44 @@ import {
 } from '@phosphor-icons/react'
 
 export function ReportsPage() {
-  const { dailyResults, dailyResultsLoading, loadDailyResults, lotteries, winners, users, visibleTaquillas, visibleTaquillaIds } = useApp()
+  const {
+    dailyResults,
+    dailyResultsLoading,
+    loadDailyResults,
+    lotteries,
+    winners,
+    users,
+    visibleTaquillas,
+    visibleTaquillaIds,
+    currentUser,
+    comercializadoras,
+    agencies,
+    visibleAgencies
+  } = useApp()
   const { topMostPlayed, topHighestAmount, loading: betsStatsLoading, loadBetsStats } = useBetsStats({ visibleTaquillaIds })
-  const { stats: salesStats, loading: salesLoading, refresh: refreshSales } = useSalesStats({ visibleTaquillaIds })
+
+  // Determinar tipo de usuario
+  const isAdmin = currentUser?.userType === 'admin' || !currentUser?.userType
+  const isComercializadora = currentUser?.userType === 'comercializadora'
+  const isAgencia = currentUser?.userType === 'agencia'
+
+  // Stats de comercializadoras (para admin)
+  const { stats: comercializadoraStats, refresh: refreshComercializadoraStats } = useComercializadoraStats({
+    comercializadoras: comercializadoras || [],
+    agencies: visibleAgencies || agencies || [],
+    taquillas: visibleTaquillas || []
+  })
+
+  // Stats de agencias (para comercializadora)
+  const { stats: agencyStats, refresh: refreshAgencyStats } = useAgencyStats({
+    agencies: visibleAgencies || [],
+    taquillas: visibleTaquillas || []
+  })
+
+  // Stats de taquillas (para agencia)
+  const { stats: taquillaStats, refresh: refreshTaquillaStats } = useTaquillaStats({
+    taquillas: visibleTaquillas || []
+  })
 
   const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month' | 'custom'>('month')
   const [selectedLottery, setSelectedLottery] = useState<string>('all')
@@ -84,6 +122,80 @@ export function ReportsPage() {
     })
   }, [winners, selectedLottery, dateRange])
 
+  // Calcular totales desde los hooks de comercializadora/agencia/taquilla según el tipo de usuario
+  const periodTotals = useMemo(() => {
+    let totalSales = 0
+    let totalPrizes = 0
+    let totalCommissions = 0
+    let totalBalance = 0
+
+    // Seleccionar el hook correcto según el tipo de usuario
+    if (isAdmin && comercializadoraStats && comercializadoraStats.length > 0) {
+      // Admin: sumar de todas las comercializadoras
+      comercializadoraStats.forEach(stat => {
+        if (periodFilter === 'today') {
+          totalSales += stat.todaySales
+          totalPrizes += stat.todayPrizes
+          totalCommissions += stat.todaySalesCommission
+          totalBalance += stat.todayBalance
+        } else if (periodFilter === 'week') {
+          totalSales += stat.weekSales
+          totalPrizes += stat.weekPrizes
+          totalCommissions += stat.weekSalesCommission
+          totalBalance += stat.weekBalance
+        } else {
+          // month o custom
+          totalSales += stat.monthSales
+          totalPrizes += stat.monthPrizes
+          totalCommissions += stat.monthSalesCommission
+          totalBalance += stat.monthBalance
+        }
+      })
+    } else if (isComercializadora && agencyStats && agencyStats.length > 0) {
+      // Comercializadora: sumar de todas sus agencias
+      agencyStats.forEach(stat => {
+        if (periodFilter === 'today') {
+          totalSales += stat.todaySales
+          totalPrizes += stat.todayPrizes
+          totalCommissions += stat.todaySalesCommission
+          totalBalance += stat.todayBalance
+        } else if (periodFilter === 'week') {
+          totalSales += stat.weekSales
+          totalPrizes += stat.weekPrizes
+          totalCommissions += stat.weekSalesCommission
+          totalBalance += stat.weekBalance
+        } else {
+          totalSales += stat.monthSales
+          totalPrizes += stat.monthPrizes
+          totalCommissions += stat.monthSalesCommission
+          totalBalance += stat.monthBalance
+        }
+      })
+    } else if (isAgencia && taquillaStats && taquillaStats.length > 0) {
+      // Agencia: sumar de todas sus taquillas
+      taquillaStats.forEach(stat => {
+        if (periodFilter === 'today') {
+          totalSales += stat.todaySales
+          totalPrizes += stat.todayPrizes
+          totalCommissions += stat.todaySalesCommission
+          totalBalance += stat.todayBalance
+        } else if (periodFilter === 'week') {
+          totalSales += stat.weekSales
+          totalPrizes += stat.weekPrizes
+          totalCommissions += stat.weekSalesCommission
+          totalBalance += stat.weekBalance
+        } else {
+          totalSales += stat.monthSales
+          totalPrizes += stat.monthPrizes
+          totalCommissions += stat.monthSalesCommission
+          totalBalance += stat.monthBalance
+        }
+      })
+    }
+
+    return { totalSales, totalPrizes, totalCommissions, totalBalance }
+  }, [isAdmin, isComercializadora, isAgencia, comercializadoraStats, agencyStats, taquillaStats, periodFilter])
+
   // Estadísticas principales - usando datos filtrados por taquillas visibles
   const stats = useMemo(() => {
     const totalResults = filteredResults.length
@@ -94,21 +206,13 @@ export function ReportsPage() {
     const totalPayout = filteredWinners.reduce((sum, w) => sum + w.potentialWin, 0)
     const totalBetAmount = filteredWinners.reduce((sum, w) => sum + w.amount, 0)
 
-    // Obtener ventas según el período seleccionado (ya filtradas por visibleTaquillaIds)
-    let periodSales = 0
-    if (periodFilter === 'today') {
-      periodSales = salesStats.todaySales
-    } else if (periodFilter === 'week') {
-      periodSales = salesStats.weekSales
-    } else if (periodFilter === 'month') {
-      periodSales = salesStats.monthSales
-    } else {
-      // Para custom, usar ventas del mes como aproximación
-      periodSales = salesStats.monthSales
-    }
+    // Usar los totales calculados desde los hooks de comercializadora/agencia/taquilla
+    const periodSales = periodTotals.totalSales
+    const periodPrizes = periodTotals.totalPrizes
+    const periodCommissions = periodTotals.totalCommissions
 
-    // Ganancia neta = ventas - premios pagados (usando datos filtrados)
-    const totalRaised = periodSales - totalPayout
+    // Ganancia neta = ventas - premios - comisiones
+    const totalRaised = periodSales - periodPrizes - periodCommissions
 
     // Contar sorteos que tienen al menos un ganador de las taquillas visibles
     // Crear un Set de combinaciones únicas lotteryId-fecha de los ganadores filtrados
@@ -136,9 +240,11 @@ export function ReportsPage() {
       totalWinningBets,
       totalWinningAmount: totalPayout,
       totalBetAmount,
-      periodSales
+      periodSales,
+      periodPrizes,
+      periodCommissions
     }
-  }, [filteredResults, filteredWinners, periodFilter, salesStats, dateRange])
+  }, [filteredResults, filteredWinners, periodTotals])
 
   // Top loterías por premios pagados - usando filteredWinners (filtrado por taquillas visibles)
   const topLotteries = useMemo(() => {
@@ -264,7 +370,14 @@ export function ReportsPage() {
 
   const handleRefresh = () => {
     loadDailyResults()
-    refreshSales()
+    // Refrescar stats según el tipo de usuario
+    if (isAdmin) {
+      refreshComercializadoraStats()
+    } else if (isComercializadora) {
+      refreshAgencyStats()
+    } else if (isAgencia) {
+      refreshTaquillaStats()
+    }
     loadBetsStats({
       startDate: startOfDay(dateRange.from).toISOString(),
       endDate: endOfDay(dateRange.to).toISOString(),
@@ -376,11 +489,11 @@ export function ReportsPage() {
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                <Receipt className="h-5 w-5 text-white" weight="fill" />
+                <CurrencyDollar className="h-5 w-5 text-white" weight="bold" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.totalResults}</p>
-                <p className="text-xs text-muted-foreground">Sorteos Realizados</p>
+                <p className="text-2xl font-bold text-blue-600">{formatCurrency(stats.periodSales)}</p>
+                <p className="text-xs text-muted-foreground">Total de Ventas</p>
               </div>
             </div>
           </CardContent>
@@ -390,11 +503,25 @@ export function ReportsPage() {
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
-                <CurrencyDollar className="h-5 w-5 text-white" weight="bold" />
+                <Trophy className="h-5 w-5 text-white" weight="bold" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-red-600">{formatCurrency(stats.totalPayout)}</p>
-                <p className="text-xs text-muted-foreground">Total Pagado en Premios</p>
+                <p className="text-2xl font-bold text-red-600">{formatCurrency(stats.periodPrizes)}</p>
+                <p className="text-xs text-muted-foreground">Total de Premios</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-amber-500">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
+                <Receipt className="h-5 w-5 text-white" weight="bold" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-amber-600">{formatCurrency(stats.periodCommissions)}</p>
+                <p className="text-xs text-muted-foreground">Total de Comisiones</p>
               </div>
             </div>
           </CardContent>
@@ -407,7 +534,7 @@ export function ReportsPage() {
                 <TrendUp className="h-5 w-5 text-white" weight="bold" />
               </div>
               <div>
-                <p className={`text-2xl font-bold ${stats.totalRaised >= 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                <p className={`text-2xl font-bold ${stats.totalRaised >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                   {formatCurrency(Math.abs(stats.totalRaised))}
                 </p>
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -418,25 +545,11 @@ export function ReportsPage() {
                     </>
                   ) : (
                     <>
-                      <CaretDown className="h-3 w-3 text-amber-600" weight="bold" />
+                      <CaretDown className="h-3 w-3 text-red-600" weight="bold" />
                       Pérdida Neta
                     </>
                   )}
                 </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-amber-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
-                <Trophy className="h-5 w-5 text-white" weight="fill" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.totalWinningBets}</p>
-                <p className="text-xs text-muted-foreground">Jugadas Ganadoras</p>
               </div>
             </div>
           </CardContent>
@@ -740,20 +853,7 @@ export function ReportsPage() {
             <Coins className="h-5 w-5 text-primary" />
             <h3 className="font-semibold">Resumen del Período: {getPeriodLabel()}</h3>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="p-3 rounded-lg bg-muted/50">
-              <p className="text-xs text-muted-foreground mb-1">Sorteos Realizados</p>
-              <p className="text-xl font-bold">{stats.totalResults}</p>
-            </div>
-            <div className="p-3 rounded-lg bg-muted/50">
-              <p className="text-xs text-muted-foreground mb-1">Con Ganadores</p>
-              <div className="flex items-center gap-2">
-                <p className="text-xl font-bold">{stats.resultsWithWinners}</p>
-                <Badge variant="outline" className="text-xs">
-                  {stats.totalResults > 0 ? ((stats.resultsWithWinners / stats.totalResults) * 100).toFixed(1) : 0}%
-                </Badge>
-              </div>
-            </div>
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="p-3 rounded-lg bg-muted/50">
               <p className="text-xs text-muted-foreground mb-1">Promedio por Premio</p>
               <p className="text-xl font-bold">{formatCurrency(stats.averagePayout)}</p>

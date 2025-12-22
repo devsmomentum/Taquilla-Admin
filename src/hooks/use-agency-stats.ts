@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { startOfWeek, startOfDay, endOfDay } from 'date-fns'
+import { startOfWeek, startOfDay, endOfDay, startOfMonth } from 'date-fns'
 
 export interface AgencyStats {
   agencyId: string
@@ -13,6 +13,14 @@ export interface AgencyStats {
   // Datos de la semana
   weekSales: number
   weekPrizes: number
+  weekSalesCommission: number
+  weekBalance: number
+  // Datos del mes
+  monthSales: number
+  monthPrizes: number
+  monthSalesCommission: number
+  monthBalance: number
+  // Legacy
   salesCommission: number
   shareOnSales: number
   balance: number // weekSales - weekPrizes - salesCommission
@@ -66,6 +74,7 @@ export function useAgencyStats(options: UseAgencyStatsOptions) {
       const now = new Date()
       const todayStart = startOfDay(now).toISOString()
       const weekStart = startOfWeek(now, { weekStartsOn: 1 }).toISOString()
+      const monthStart = startOfMonth(now).toISOString()
       const todayEnd = endOfDay(now).toISOString()
 
       // Build a map: agencyId -> taquillaIds[]
@@ -94,6 +103,12 @@ export function useAgencyStats(options: UseAgencyStatsOptions) {
           todayBalance: 0,
           weekSales: 0,
           weekPrizes: 0,
+          weekSalesCommission: 0,
+          weekBalance: 0,
+          monthSales: 0,
+          monthPrizes: 0,
+          monthSalesCommission: 0,
+          monthBalance: 0,
           salesCommission: 0,
           shareOnSales: agency.shareOnSales || 0,
           balance: 0
@@ -110,7 +125,7 @@ export function useAgencyStats(options: UseAgencyStatsOptions) {
         .from('bets')
         .select('user_id, amount, created_at')
         .in('user_id', allTaquillaIds)
-        .gte('created_at', weekStart)
+        .gte('created_at', monthStart)
         .lte('created_at', todayEnd)
         .neq('status', 'cancelled')
 
@@ -120,16 +135,22 @@ export function useAgencyStats(options: UseAgencyStatsOptions) {
         return
       }
 
-      // Sum sales by taquilla (semana y día)
-      const salesByTaquilla = new Map<string, number>()
+      // Sum sales by taquilla (mes, semana y día)
+      const monthSalesByTaquilla = new Map<string, number>()
+      const weekSalesByTaquilla = new Map<string, number>()
       const todaySalesByTaquilla = new Map<string, number>()
       ;(salesData || []).forEach(bet => {
         const odile = bet.user_id as string
         if (odile) {
           const amount = Number(bet.amount) || 0
+          // Ventas del mes
+          const currentMonth = monthSalesByTaquilla.get(odile) || 0
+          monthSalesByTaquilla.set(odile, currentMonth + amount)
           // Ventas de la semana
-          const current = salesByTaquilla.get(odile) || 0
-          salesByTaquilla.set(odile, current + amount)
+          if (bet.created_at >= weekStart) {
+            const currentWeek = weekSalesByTaquilla.get(odile) || 0
+            weekSalesByTaquilla.set(odile, currentWeek + amount)
+          }
           // Ventas del día
           if (bet.created_at >= todayStart) {
             const currentToday = todaySalesByTaquilla.get(odile) || 0
@@ -148,7 +169,7 @@ export function useAgencyStats(options: UseAgencyStatsOptions) {
         .select('user_id, potential_bet_amount, status, created_at')
         .in('user_id', allTaquillaIds)
         .in('status', ['winner', 'paid'])
-        .gte('created_at', weekStart)
+        .gte('created_at', monthStart)
         .lte('created_at', todayEnd)
 
       if (prizesError) {
@@ -157,16 +178,22 @@ export function useAgencyStats(options: UseAgencyStatsOptions) {
         return
       }
 
-      // Sum prizes by taquilla (semana y día)
-      const prizesByTaquilla = new Map<string, number>()
+      // Sum prizes by taquilla (mes, semana y día)
+      const monthPrizesByTaquilla = new Map<string, number>()
+      const weekPrizesByTaquilla = new Map<string, number>()
       const todayPrizesByTaquilla = new Map<string, number>()
       ;(prizesData || []).forEach(item => {
         const odile = item.user_id as string
         if (odile) {
           const amount = Number(item.potential_bet_amount) || 0
+          // Premios del mes
+          const currentMonth = monthPrizesByTaquilla.get(odile) || 0
+          monthPrizesByTaquilla.set(odile, currentMonth + amount)
           // Premios de la semana
-          const current = prizesByTaquilla.get(odile) || 0
-          prizesByTaquilla.set(odile, current + amount)
+          if (item.created_at >= weekStart) {
+            const currentWeek = weekPrizesByTaquilla.get(odile) || 0
+            weekPrizesByTaquilla.set(odile, currentWeek + amount)
+          }
           // Premios del día
           if (item.created_at >= todayStart) {
             const currentToday = todayPrizesByTaquilla.get(odile) || 0
@@ -196,15 +223,31 @@ export function useAgencyStats(options: UseAgencyStatsOptions) {
 
         // ---- Datos de la SEMANA ----
         const weekSales = taquillaIds.reduce((sum, tId) => {
-          return sum + (salesByTaquilla.get(tId) || 0)
+          return sum + (weekSalesByTaquilla.get(tId) || 0)
         }, 0)
 
         const weekPrizes = taquillaIds.reduce((sum, tId) => {
-          return sum + (prizesByTaquilla.get(tId) || 0)
+          return sum + (weekPrizesByTaquilla.get(tId) || 0)
         }, 0)
 
-        const salesCommission = weekSales * (shareOnSales / 100)
-        const balance = weekSales - weekPrizes - salesCommission
+        const weekSalesCommission = weekSales * (shareOnSales / 100)
+        const weekBalance = weekSales - weekPrizes - weekSalesCommission
+
+        // ---- Datos del MES ----
+        const monthSales = taquillaIds.reduce((sum, tId) => {
+          return sum + (monthSalesByTaquilla.get(tId) || 0)
+        }, 0)
+
+        const monthPrizes = taquillaIds.reduce((sum, tId) => {
+          return sum + (monthPrizesByTaquilla.get(tId) || 0)
+        }, 0)
+
+        const monthSalesCommission = monthSales * (shareOnSales / 100)
+        const monthBalance = monthSales - monthPrizes - monthSalesCommission
+
+        // Legacy
+        const salesCommission = weekSalesCommission
+        const balance = weekBalance
 
         return {
           agencyId: agency.id,
@@ -215,6 +258,12 @@ export function useAgencyStats(options: UseAgencyStatsOptions) {
           todayBalance,
           weekSales,
           weekPrizes,
+          weekSalesCommission,
+          weekBalance,
+          monthSales,
+          monthPrizes,
+          monthSalesCommission,
+          monthBalance,
           salesCommission,
           shareOnSales,
           balance
