@@ -75,10 +75,7 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers }: Expandable
     try {
       // Filtrar usuarios hijos según el tipo
       const childUsers = allUsers.filter(u => {
-        if (childType === 'comercializadora') {
-          // Para admins, las comercializadoras son las que tienen parentId = admin.id o createdBy = admin.id
-          return u.userType === 'comercializadora' && (u.parentId === entity.id || u.createdBy === entity.id)
-        }
+        // Solo usar parentId para determinar la propiedad (no createdBy)
         return u.userType === childType && u.parentId === entity.id
       })
 

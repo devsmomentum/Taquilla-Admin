@@ -78,10 +78,11 @@ export function useHierarchicalStats(options: UseHierarchicalStatsOptions) {
             u.userType === 'admin' && u.id !== currentUser.id
           )
         } else {
-          // Admin con roles: mostrar comercializadoras que creó o tiene asignadas
+          // Admin con roles: mostrar comercializadoras asignadas (parentId)
+          // Nota: No usar createdBy ya que solo indica quién creó el registro, no el propietario actual
           entitiesToShow = allUsers.filter(u =>
             u.userType === 'comercializadora' &&
-            (u.parentId === currentUser.id || u.createdBy === currentUser.id)
+            u.parentId === currentUser.id
           )
         }
       } else if (userType === 'comercializadora') {
@@ -200,10 +201,10 @@ export function useHierarchicalStats(options: UseHierarchicalStatsOptions) {
             })
           })
         } else if (rootType === 'admin') {
-          // Para admins, sumar todo de sus comercializadoras
+          // Para admins, sumar todo de sus comercializadoras (solo por parentId)
           const adminComs = allUsers.filter(u =>
             u.userType === 'comercializadora' &&
-            (u.parentId === entity.id || u.createdBy === entity.id)
+            u.parentId === entity.id
           )
           adminComs.forEach(com => {
             const comAgencies = allUsers.filter(u =>
@@ -238,7 +239,7 @@ export function useHierarchicalStats(options: UseHierarchicalStatsOptions) {
         if (rootType === 'admin') {
           hasChildren = allUsers.some(u =>
             u.userType === 'comercializadora' &&
-            (u.parentId === entity.id || u.createdBy === entity.id)
+            u.parentId === entity.id
           )
         } else if (rootType === 'comercializadora' || entity.userType === 'comercializadora') {
           hasChildren = allUsers.some(u =>
