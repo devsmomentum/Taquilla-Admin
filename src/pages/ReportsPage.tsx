@@ -30,7 +30,8 @@ import {
   Coins,
   Receipt,
   Hash,
-  Money
+  Money,
+  MagnifyingGlass
 } from '@phosphor-icons/react'
 
 export function ReportsPage() {
@@ -55,22 +56,37 @@ export function ReportsPage() {
   const isComercializadora = currentUser?.userType === 'comercializadora'
   const isAgencia = currentUser?.userType === 'agencia'
 
+  // Estado de fechas aplicadas (solo se actualiza con el botón o filtros rápidos)
+  const [appliedDateRange, setAppliedDateRange] = useState<{ from: Date; to: Date }>(() => {
+    const now = new Date()
+    return {
+      from: startOfMonth(now),
+      to: startOfDay(now)
+    }
+  })
+
   // Stats de comercializadoras (para admin)
   const { stats: comercializadoraStats, refresh: refreshComercializadoraStats } = useComercializadoraStats({
     comercializadoras: comercializadoras || [],
     agencies: visibleAgencies || agencies || [],
-    taquillas: visibleTaquillas || []
+    taquillas: visibleTaquillas || [],
+    dateFrom: appliedDateRange.from,
+    dateTo: appliedDateRange.to
   })
 
   // Stats de agencias (para comercializadora)
   const { stats: agencyStats, refresh: refreshAgencyStats } = useAgencyStats({
     agencies: visibleAgencies || [],
-    taquillas: visibleTaquillas || []
+    taquillas: visibleTaquillas || [],
+    dateFrom: appliedDateRange.from,
+    dateTo: appliedDateRange.to
   })
 
   // Stats de taquillas (para agencia)
   const { stats: taquillaStats, refresh: refreshTaquillaStats } = useTaquillaStats({
-    taquillas: visibleTaquillas || []
+    taquillas: visibleTaquillas || [],
+    dateFrom: appliedDateRange.from,
+    dateTo: appliedDateRange.to
   })
 
   const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month' | 'custom'>('month')
@@ -143,8 +159,13 @@ export function ReportsPage() {
           totalPrizes += stat.weekPrizes
           totalCommissions += stat.weekSalesCommission
           totalBalance += stat.weekBalance
+        } else if (periodFilter === 'custom') {
+          totalSales += stat.rangeSales
+          totalPrizes += stat.rangePrizes
+          totalCommissions += stat.rangeSalesCommission
+          totalBalance += stat.rangeBalance
         } else {
-          // month o custom
+          // month
           totalSales += stat.monthSales
           totalPrizes += stat.monthPrizes
           totalCommissions += stat.monthSalesCommission
@@ -167,7 +188,12 @@ export function ReportsPage() {
           totalSales += stat.weekSales
           totalPrizes += stat.weekPrizes
           totalBalance += stat.weekBalance
+        } else if (periodFilter === 'custom') {
+          totalSales += stat.rangeSales
+          totalPrizes += stat.rangePrizes
+          totalBalance += stat.rangeBalance
         } else {
+          // month
           totalSales += stat.monthSales
           totalPrizes += stat.monthPrizes
           totalBalance += stat.monthBalance
@@ -192,7 +218,12 @@ export function ReportsPage() {
           totalSales += stat.weekSales
           totalPrizes += stat.weekPrizes
           totalBalance += stat.weekBalance
+        } else if (periodFilter === 'custom') {
+          totalSales += stat.rangeSales
+          totalPrizes += stat.rangePrizes
+          totalBalance += stat.rangeBalance
         } else {
+          // month
           totalSales += stat.monthSales
           totalPrizes += stat.monthPrizes
           totalBalance += stat.monthBalance
@@ -343,16 +374,19 @@ export function ReportsPage() {
     }
   }
 
-  // Handlers para filtros rápidos - actualizan dateRange
+  // Handlers para filtros rápidos - actualizan dateRange y appliedDateRange
   const handlePeriodClick = (period: 'today' | 'week' | 'month') => {
     setPeriodFilter(period)
+    let newRange: { from: Date; to: Date }
     if (period === 'today') {
-      setDateRange({ from: todayStart, to: todayStart })
+      newRange = { from: todayStart, to: todayStart }
     } else if (period === 'week') {
-      setDateRange({ from: weekStart, to: todayStart })
-    } else if (period === 'month') {
-      setDateRange({ from: monthStart, to: todayStart })
+      newRange = { from: weekStart, to: todayStart }
+    } else {
+      newRange = { from: monthStart, to: todayStart }
     }
+    setDateRange(newRange)
+    setAppliedDateRange(newRange)
   }
 
   // Handlers para inputs de fecha - deseleccionan filtros rápidos
@@ -377,6 +411,17 @@ export function ReportsPage() {
       setPeriodFilter('custom')
     }
   }
+
+  // Aplicar filtro personalizado
+  const handleApplyCustomFilter = () => {
+    setAppliedDateRange({ from: dateRange.from, to: dateRange.to })
+  }
+
+  // Verificar si hay cambios pendientes de aplicar
+  const hasUnappliedChanges = periodFilter === 'custom' && (
+    dateRange.from.getTime() !== appliedDateRange.from.getTime() ||
+    dateRange.to.getTime() !== appliedDateRange.to.getTime()
+  )
 
   const handleRefresh = () => {
     loadDailyResults()
@@ -489,6 +534,16 @@ export function ReportsPage() {
                 max={format(new Date(), 'yyyy-MM-dd')}
               />
             </div>
+            <Button
+              variant={hasUnappliedChanges ? 'default' : 'outline'}
+              size="sm"
+              onClick={handleApplyCustomFilter}
+              className={`gap-1 ${hasUnappliedChanges ? 'animate-pulse' : ''}`}
+              disabled={periodFilter !== 'custom'}
+            >
+              <MagnifyingGlass className="h-4 w-4" />
+              Aplicar
+            </Button>
           </div>
         </div>
       </div>
