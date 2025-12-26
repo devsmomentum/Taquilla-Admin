@@ -11,7 +11,7 @@ import { useTaquillaStats } from '@/hooks/use-taquilla-stats'
 import { useHierarchicalStats } from '@/hooks/use-hierarchical-stats'
 import { HierarchicalStatsTable } from '@/components/HierarchicalStatsTable'
 import { formatCurrency } from '@/lib/pot-utils'
-import { format, parseISO, startOfDay, endOfDay, startOfWeek, isWithinInterval } from 'date-fns'
+import { format, parseISO, startOfDay, endOfDay, startOfWeek, startOfMonth, isWithinInterval } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   CurrencyDollar,
@@ -53,6 +53,10 @@ export function DashboardPage() {
   const now = new Date()
   const todayStart = startOfDay(now)
   const weekStart = startOfWeek(now, { weekStartsOn: 1 })
+  const monthStart = startOfMonth(now)
+
+  // Estado del período seleccionado (para resaltar el botón activo)
+  const [periodFilter, setPeriodFilter] = useState<'today' | 'week' | 'month' | 'custom'>('week')
 
   // Estado del rango de fechas pendientes (lo que el usuario está seleccionando)
   const [pendingDateRange, setPendingDateRange] = useState<{ from: Date; to: Date }>({
@@ -379,6 +383,22 @@ export function DashboardPage() {
     return new Date(year, month - 1, day) // month es 0-indexed
   }
 
+  // Handler para filtros rápidos - actualizan y aplican inmediatamente
+  const handlePeriodClick = (period: 'today' | 'week' | 'month') => {
+    setPeriodFilter(period)
+    let newRange: { from: Date; to: Date }
+    if (period === 'today') {
+      newRange = { from: todayStart, to: todayStart }
+    } else if (period === 'week') {
+      newRange = { from: weekStart, to: todayStart }
+    } else {
+      newRange = { from: monthStart, to: todayStart }
+    }
+    setPendingDateRange(newRange)
+    setAppliedDateRange(newRange)
+    setHasUnappliedChanges(false)
+  }
+
   // Handlers para cambio de fechas pendientes
   const handleFromDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFrom = parseDateInput(e.target.value)
@@ -389,6 +409,7 @@ export function DashboardPage() {
         // Ajustar fecha "hasta" si es menor a la nueva fecha "desde"
         to: newFrom > prev.to ? newFrom : prev.to
       }))
+      setPeriodFilter('custom')
       setHasUnappliedChanges(true)
     }
   }
@@ -404,6 +425,7 @@ export function DashboardPage() {
         ...prev,
         to: newTo
       }))
+      setPeriodFilter('custom')
       setHasUnappliedChanges(true)
     }
   }
@@ -464,12 +486,45 @@ export function DashboardPage() {
               <CalendarBlank className="h-5 w-5 text-primary" />
               <span className="font-medium text-sm">Período:</span>
             </div>
+
+            {/* Filtros rápidos */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant={periodFilter === 'today' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handlePeriodClick('today')}
+                disabled={isApplyingFilter}
+              >
+                Hoy
+              </Button>
+              <Button
+                variant={periodFilter === 'week' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handlePeriodClick('week')}
+                disabled={isApplyingFilter}
+              >
+                Esta Semana
+              </Button>
+              <Button
+                variant={periodFilter === 'month' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handlePeriodClick('month')}
+                disabled={isApplyingFilter}
+              >
+                Este Mes
+              </Button>
+            </div>
+
+            {/* Separador */}
+            <div className="h-6 w-px bg-border" />
+
+            {/* Rango personalizado */}
             <div className="flex items-center gap-2">
               <label htmlFor="from-date" className="text-xs text-muted-foreground">Desde:</label>
               <Input
                 id="from-date"
                 type="date"
-                className="h-8 w-[140px] text-xs"
+                className="h-8 w-[130px] text-xs"
                 value={format(pendingDateRange.from, 'yyyy-MM-dd')}
                 onChange={handleFromDateChange}
                 max={format(new Date(), 'yyyy-MM-dd')}
@@ -481,7 +536,7 @@ export function DashboardPage() {
               <Input
                 id="to-date"
                 type="date"
-                className={`h-8 w-[140px] text-xs ${!isDateRangeValid ? 'border-destructive' : ''}`}
+                className={`h-8 w-[130px] text-xs ${!isDateRangeValid ? 'border-destructive' : ''}`}
                 value={format(pendingDateRange.to, 'yyyy-MM-dd')}
                 onChange={handleToDateChange}
                 min={format(pendingDateRange.from, 'yyyy-MM-dd')}
@@ -490,10 +545,11 @@ export function DashboardPage() {
               />
             </div>
             <Button
+              variant={hasUnappliedChanges ? 'default' : 'outline'}
               size="sm"
               onClick={handleApplyFilter}
-              disabled={!hasUnappliedChanges || !isDateRangeValid || isApplyingFilter}
-              className="gap-2"
+              disabled={periodFilter !== 'custom' || !isDateRangeValid || isApplyingFilter}
+              className={`gap-2 ${hasUnappliedChanges ? 'animate-pulse' : ''}`}
             >
               {isApplyingFilter ? (
                 <>
@@ -503,7 +559,7 @@ export function DashboardPage() {
               ) : (
                 <>
                   <FunnelSimple className="h-4 w-4" weight="bold" />
-                  Aplicar Filtro
+                  Aplicar
                 </>
               )}
             </Button>
