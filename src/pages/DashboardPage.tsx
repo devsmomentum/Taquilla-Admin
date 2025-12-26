@@ -285,6 +285,25 @@ export function DashboardPage() {
     })
   }, [taquillaStats, periodType])
 
+  // Obtener el porcentaje de comisión del usuario logueado
+  const currentUserCommissionPercent = useMemo(() => {
+    if (!currentUser) return 0
+
+    if (isComercializadora) {
+      // Buscar la comercializadora actual
+      const currentComercializadora = comercializadoras?.find(c => c.userId === currentUser.id)
+      return currentComercializadora?.shareOnSales || 0
+    }
+
+    if (isAgencia) {
+      // Buscar la agencia actual
+      const currentAgency = agencies?.find(a => a.id === currentUser.id)
+      return currentAgency?.shareOnSales || 0
+    }
+
+    return 0
+  }, [currentUser, isComercializadora, isAgencia, comercializadoras, agencies])
+
   // Estadísticas de resultados - usando datos según el perfil del usuario
   const periodStats = useMemo(() => {
     const fromDate = startOfDay(appliedDateRange.from)
@@ -308,25 +327,37 @@ export function DashboardPage() {
       }
     }
 
-    // Para COMERCIALIZADORA: usar datos de agencias
+    // Para COMERCIALIZADORA: usar datos de agencias pero calcular comisión con el % del usuario
     if (isComercializadora && agencyStats && agencyStats.length > 0) {
+      const totalSales = agencyTotals.totalSales
+      const totalPrizes = agencyTotals.totalPrizes
+      // Calcular comisión basada en el % de la comercializadora logueada
+      const totalCommissions = totalSales * (currentUserCommissionPercent / 100)
+      const totalRaised = totalSales - totalPrizes - totalCommissions
+
       return {
-        totalSales: agencyTotals.totalSales,
-        totalPayout: agencyTotals.totalPrizes,
-        totalCommissions: agencyTotals.totalCommissions,
-        totalRaised: agencyTotals.totalBalance,
+        totalSales,
+        totalPayout: totalPrizes,
+        totalCommissions,
+        totalRaised,
         resultsCount,
         resultsWithWinners
       }
     }
 
-    // Para AGENCIA: usar datos de taquillas
+    // Para AGENCIA: usar datos de taquillas pero calcular comisión con el % del usuario
     if (isAgencia && taquillaStats && taquillaStats.length > 0) {
+      const totalSales = taquillaTotals.totalSales
+      const totalPrizes = taquillaTotals.totalPrizes
+      // Calcular comisión basada en el % de la agencia logueada
+      const totalCommissions = totalSales * (currentUserCommissionPercent / 100)
+      const totalRaised = totalSales - totalPrizes - totalCommissions
+
       return {
-        totalSales: taquillaTotals.totalSales,
-        totalPayout: taquillaTotals.totalPrizes,
-        totalCommissions: taquillaTotals.totalCommissions,
-        totalRaised: taquillaTotals.totalBalance,
+        totalSales,
+        totalPayout: totalPrizes,
+        totalCommissions,
+        totalRaised,
         resultsCount,
         resultsWithWinners
       }
@@ -346,7 +377,7 @@ export function DashboardPage() {
       resultsCount,
       resultsWithWinners
     }
-  }, [dailyResults, appliedDateRange, filteredWinners, salesStats, comercializadoraStats, comercializadoraTotals, agencyStats, agencyTotals, taquillaStats, taquillaTotals, isAdmin, isComercializadora, isAgencia, periodType])
+  }, [dailyResults, appliedDateRange, filteredWinners, salesStats, comercializadoraStats, comercializadoraTotals, agencyStats, agencyTotals, taquillaStats, taquillaTotals, isAdmin, isComercializadora, isAgencia, periodType, currentUserCommissionPercent])
 
   // Últimos resultados (para todos los usuarios)
   const latestResults = useMemo(() => {
