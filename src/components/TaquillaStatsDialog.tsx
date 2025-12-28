@@ -185,14 +185,21 @@ export function TaquillaStatsDialog({ open, onOpenChange, taquilla }: Props) {
     let filtered = registers
 
     if (useCustomDates && startDate && endDate) {
+      // Filtro personalizado: mostrar caja abierta solo si el rango abarca su fecha de apertura o posterior
       const start = new Date(startDate).getTime()
       const end = new Date(endDate + 'T23:59:59').getTime()
+
       filtered = registers.filter(r => {
-        // Para cajas abiertas usar openingDate, para cerradas usar closingDate
-        const relevantDate = r.status === 'open' ? r.openingDate : (r.closingDate || r.openingDate)
+        if (r.status === 'open') {
+          // La caja abierta se muestra si la fecha fin del rango es >= fecha de apertura
+          return end >= r.openingDate
+        }
+        // Para cerradas usar closingDate
+        const relevantDate = r.closingDate || r.openingDate
         return relevantDate >= start && relevantDate <= end
       })
     } else if (periodFilter !== 'all') {
+      // Filtros rápidos (día, semana, mes): siempre incluir caja abierta
       const now = new Date()
       let startDateTs: number
 
@@ -210,9 +217,11 @@ export function TaquillaStatsDialog({ open, onOpenChange, taquilla }: Props) {
           startDateTs = 0
       }
 
-      // Para cajas abiertas usar openingDate, para cerradas usar closingDate
       filtered = registers.filter(r => {
-        const relevantDate = r.status === 'open' ? r.openingDate : (r.closingDate || r.openingDate)
+        // Siempre incluir cajas abiertas en filtros rápidos
+        if (r.status === 'open') return true
+        // Para cerradas usar closingDate
+        const relevantDate = r.closingDate || r.openingDate
         return relevantDate >= startDateTs
       })
     }
