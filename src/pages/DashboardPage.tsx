@@ -637,23 +637,31 @@ export function DashboardPage() {
               <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
                 <TrendUp className="h-5 w-5 text-white" weight="bold" />
               </div>
-              <div>
-                <p className={`text-2xl font-bold ${periodStats.totalRaised >= 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                  {formatCurrency(Math.abs(periodStats.totalRaised))}
-                </p>
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  {periodStats.totalRaised >= 0 ? (
+              <div className="flex-1">
+                <div className="space-y-1">
+                  <div>
+                    <p className={`text-lg font-bold ${periodStats.totalRaised >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {periodStats.totalRaised < 0 ? '-' : ''}{formatCurrency(Math.abs(periodStats.totalRaised))}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Utilidad</p>
+                  </div>
+                  {(isComercializadora || isAgencia) && currentUserCommissionPercent > 0 && (
                     <>
-                      <CaretUp className="h-3 w-3 text-emerald-600" weight="bold" />
-                      Ganancia
-                    </>
-                  ) : (
-                    <>
-                      <CaretDown className="h-3 w-3 text-amber-600" weight="bold" />
-                      Pérdida
+                      <div>
+                        <p className={`text-sm font-semibold ${periodStats.totalRaised >= 0 ? 'text-gray-600' : 'text-red-600'}`}>
+                          {periodStats.totalRaised < 0 ? '-' : ''}{formatCurrency(Math.abs(periodStats.totalRaised) * (currentUserCommissionPercent / 100))}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Participación ({currentUserCommissionPercent}%)</p>
+                      </div>
+                      <div className="pt-1 border-t">
+                        <p className={`text-lg font-bold ${periodStats.totalRaised >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+                          {periodStats.totalRaised < 0 ? '-' : ''}{formatCurrency(Math.abs(periodStats.totalRaised) * (1 - currentUserCommissionPercent / 100))}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Total</p>
+                      </div>
                     </>
                   )}
-                </p>
+                </div>
               </div>
             </div>
           </CardContent>

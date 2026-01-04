@@ -107,14 +107,14 @@ export function ComercializadorasTab({
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight">Comercializadoras</h2>
+                    <h2 className="text-2xl font-bold tracking-tight">Subdistribuidores</h2>
                     <p className="text-muted-foreground">
-                        Gestiona las comercializadoras que coordinan agencias
+                        Gestiona los subdistribuidores que coordinan agencias
                     </p>
                 </div>
                 <Button onClick={handleCreate} className="gap-2 cursor-pointer">
                     <Plus weight="bold" />
-                    Nueva Comercializadora
+                    Nuevo Subdistribuidor
                 </Button>
             </div>
 
@@ -170,15 +170,15 @@ export function ComercializadorasTab({
                             <Buildings className="h-6 w-6 text-muted-foreground" />
                         </div>
                         <p className="text-lg font-medium">
-                            {search ? 'No se encontraron comercializadoras' : 'No hay comercializadoras registradas'}
+                            {search ? 'No se encontraron subdistribuidores' : 'No hay subdistribuidores registrados'}
                         </p>
                         <p className="text-muted-foreground text-sm mb-4">
-                            {search ? 'Intenta con otros criterios de búsqueda' : 'Crea tu primera comercializadora para comenzar'}
+                            {search ? 'Intenta con otros criterios de búsqueda' : 'Crea tu primer subdistribuidor para comenzar'}
                         </p>
                         {!search && (
                             <Button onClick={handleCreate} variant="outline" className="gap-2 cursor-pointer">
                                 <Plus weight="bold" />
-                                Crear Primera Comercializadora
+                                Crear Primer Subdistribuidor
                             </Button>
                         )}
                     </CardContent>
