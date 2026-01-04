@@ -26,18 +26,18 @@ import {
 
 // Items de navegación base - el path y label se ajustan según el tipo de usuario
 const getNavItems = (currentUser: any) => {
-  let comercializadorasPath = '/comercializadoras'
-  let comercializadorasLabel = 'Comercializadoras'
+  let comercializadorasPath = '/subdistribuidores'
+  let comercializadorasLabel = 'Subdistribuidores'
 
   // Para comercializadoras, el link va directo a sus agencias
   if (currentUser?.userType === 'comercializadora') {
-    comercializadorasPath = `/comercializadoras/${currentUser.id}/agencias`
+    comercializadorasPath = `/subdistribuidores/${currentUser.id}/agencias`
     comercializadorasLabel = 'Mis Agencias'
   }
 
   // Para agencias, el link va directo a sus taquillas
   if (currentUser?.userType === 'agencia') {
-    comercializadorasPath = `/comercializadoras/${currentUser.parentId}/agencias/${currentUser.id}/taquillas`
+    comercializadorasPath = `/subdistribuidores/${currentUser.parentId}/agencias/${currentUser.id}/taquillas`
     comercializadorasLabel = 'Mis Taquillas'
   }
 
@@ -47,7 +47,7 @@ const getNavItems = (currentUser: any) => {
     { path: '/lotteries', label: 'Sorteos', icon: Calendar, permission: 'lotteries' },
     { path: '/draws', label: 'Resultados', icon: Target, permission: 'draws.read' },
     { path: '/winners', label: 'Ganadores', icon: Trophy, permission: 'winners' },
-    { path: '/users', label: 'Usuarios', icon: Users, permission: 'users' },
+    { path: '/comercializadores', label: 'Comercializadores', icon: Users, permission: 'users' },
     { path: '/roles', label: 'Roles', icon: ShieldCheck, permission: 'roles' },
     { path: '/api-keys', label: 'API Keys', icon: Key, permission: 'api-keys' },
     { path: comercializadorasPath, label: comercializadorasLabel, icon: Buildings, permission: 'comercializadoras' },

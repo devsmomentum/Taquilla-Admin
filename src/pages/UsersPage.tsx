@@ -113,14 +113,14 @@ export function UsersPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Usuarios</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Comercializadores</h2>
           <p className="text-muted-foreground">
-            Gestiona los usuarios administradores del sistema
+            Gestiona los comercializadores del sistema
           </p>
         </div>
         <Button onClick={handleCreate} className="gap-2 cursor-pointer">
           <Plus weight="bold" />
-          Nuevo Usuario
+          Nuevo Comercializador
         </Button>
       </div>
 
@@ -172,15 +172,15 @@ export function UsersPage() {
               <Users className="h-6 w-6 text-muted-foreground" />
             </div>
             <p className="text-lg font-medium">
-              {search || statusFilter !== 'all' ? 'No se encontraron usuarios' : 'No hay usuarios registrados'}
+              {search || statusFilter !== 'all' ? 'No se encontraron comercializadores' : 'No hay comercializadores registrados'}
             </p>
             <p className="text-muted-foreground text-sm mb-4">
-              {search ? 'Intenta con otros criterios de búsqueda' : 'Crea tu primer usuario para comenzar'}
+              {search ? 'Intenta con otros criterios de búsqueda' : 'Crea tu primer comercializador para comenzar'}
             </p>
             {!search && statusFilter === 'all' && (
               <Button onClick={handleCreate} variant="outline" className="gap-2 cursor-pointer">
                 <Plus weight="bold" />
-                Crear Primer Usuario
+                Crear Primer Comercializador
               </Button>
             )}
           </CardContent>

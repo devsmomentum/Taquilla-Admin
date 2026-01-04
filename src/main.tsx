@@ -112,7 +112,7 @@ if (!rootEl) {
                     <WinnersPage />
                   </ProtectedRoute>
                 } />
-                <Route path="/users" element={
+                <Route path="/comercializadores" element={
                   <ProtectedRoute requiredPermission="users">
                     <UsersPage />
                   </ProtectedRoute>
@@ -127,17 +127,17 @@ if (!rootEl) {
                     <ApiKeysPage />
                   </ProtectedRoute>
                 } />
-                <Route path="/comercializadoras" element={
+                <Route path="/subdistribuidores" element={
                   <ProtectedRoute requiredPermission="comercializadoras">
                     <ComercializadorasPage />
                   </ProtectedRoute>
                 } />
-                <Route path="/comercializadoras/:id/agencias" element={
+                <Route path="/subdistribuidores/:id/agencias" element={
                   <ProtectedRoute requiredPermission="comercializadoras">
                     <ComercializadoraAgenciasPage />
                   </ProtectedRoute>
                 } />
-                <Route path="/comercializadoras/:id/agencias/:agencyId/taquillas" element={
+                <Route path="/subdistribuidores/:id/agencias/:agencyId/taquillas" element={
                   <ProtectedRoute requiredPermission="comercializadoras">
                     <AgenciaTaquillasPage />
                   </ProtectedRoute>

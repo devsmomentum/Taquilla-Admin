@@ -195,7 +195,7 @@ export function AgenciaTaquillasPage() {
         </div>
       )}
 
-      {/* Info de Comercializadora padre - Solo visible para agencias */}
+      {/* Info de Subdistribuidor padre - Solo visible para agencias */}
       {currentUser?.userType === 'agencia' && comercializadora && (
         <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
           <CardContent className="p-4">
@@ -205,7 +205,7 @@ export function AgenciaTaquillasPage() {
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="text-xs text-muted-foreground">Comercializadora</p>
+                  <p className="text-xs text-muted-foreground">Subdistribuidor</p>
                   <Info className="h-3 w-3 text-muted-foreground" />
                 </div>
                 <p className="font-semibold text-foreground">{comercializadora.name}</p>
