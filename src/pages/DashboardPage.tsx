@@ -299,8 +299,10 @@ export function DashboardPage() {
     }
 
     if (isSubdistribuidor) {
-      // Buscar el subdistribuidor actual - usar el id del usuario
-      const currentSubdistribuidor = subdistribuidores?.find(s => s.id === currentUser.id)
+      // Buscar el subdistribuidor actual
+      const currentSubdistribuidor = subdistribuidores?.find(s => 
+        s.id === currentUser.id || s.userId === currentUser.id
+      )
       return currentSubdistribuidor?.shareOnSales || 0
     }
 
@@ -324,8 +326,24 @@ export function DashboardPage() {
     }
 
     if (isSubdistribuidor) {
-      // Buscar el subdistribuidor actual - usar el id del usuario
-      const currentSubdistribuidor = subdistribuidores?.find(s => s.id === currentUser.id)
+      // Para subdistribuidores, el userId y el id deberían ser el mismo
+      // ya que el subdistribuidor ES el usuario
+      const currentSubdistribuidor = subdistribuidores?.find(s => 
+        s.id === currentUser.id || s.userId === currentUser.id
+      )
+      
+      // Log para debug
+      if (!currentSubdistribuidor) {
+        console.warn('Subdistribuidor no encontrado:', {
+          currentUserId: currentUser.id,
+          availableSubdistribuidores: subdistribuidores?.map(s => ({ 
+            id: s.id, 
+            userId: s.userId, 
+            name: s.name 
+          }))
+        })
+      }
+      
       return currentSubdistribuidor?.shareOnProfits || 0
     }
 

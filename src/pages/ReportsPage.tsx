@@ -204,8 +204,10 @@ export function ReportsPage() {
         const currentComercializadora = comercializadoras?.find(c => c.userId === currentUser?.id)
         shareOnSales = currentComercializadora?.shareOnSales || 0
       } else if (isSubdistribuidor) {
-        // Buscar el subdistribuidor actual por id
-        const currentSubdistribuidor = subdistribuidores?.find(s => s.id === currentUser?.id)
+        // Buscar el subdistribuidor actual
+        const currentSubdistribuidor = subdistribuidores?.find(s => 
+          s.id === currentUser?.id || s.userId === currentUser?.id
+        )
         shareOnSales = currentSubdistribuidor?.shareOnSales || 0
       }
 
