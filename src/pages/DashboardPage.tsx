@@ -50,22 +50,6 @@ export function DashboardPage() {
     users: allUsers
   } = useApp()
 
-  // Debug temporal para agencias
-  useEffect(() => {
-    if (currentUser?.userType === 'agencia') {
-      console.log('Debug Agencia Dashboard:', {
-        currentUser,
-        allAgencies: agencies?.map(a => ({
-          id: a.id,
-          userId: a.userId,
-          name: a.name,
-          shareOnProfits: a.shareOnProfits,
-          isCurrentUser: a.id === currentUser.id || a.userId === currentUser.id
-        }))
-      })
-    }
-  }, [currentUser, agencies])
-
   // Fechas de referencia
   const now = new Date()
   const todayStart = startOfDay(now)
@@ -348,17 +332,6 @@ export function DashboardPage() {
         s.id === currentUser.id || s.userId === currentUser.id
       )
       
-      // Log para debug
-      if (!currentSubdistribuidor) {
-        console.warn('Subdistribuidor no encontrado:', {
-          currentUserId: currentUser.id,
-          availableSubdistribuidores: subdistribuidores?.map(s => ({ 
-            id: s.id, 
-            userId: s.userId, 
-            name: s.name 
-          }))
-        })
-      }
       
       return currentSubdistribuidor?.shareOnProfits || 0
     }
@@ -369,22 +342,6 @@ export function DashboardPage() {
         a.id === currentUser.id || a.userId === currentUser.id
       )
       
-      // Log para debug
-      if (!currentAgency) {
-        console.warn('Agencia no encontrada:', {
-          currentUserId: currentUser.id,
-          availableAgencies: agencies?.map(a => ({ 
-            id: a.id, 
-            userId: a.userId, 
-            name: a.name 
-          }))
-        })
-      } else {
-        console.log('Agencia encontrada:', {
-          agency: currentAgency,
-          shareOnProfits: currentAgency.shareOnProfits
-        })
-      }
       
       return currentAgency?.shareOnProfits || 0
     }
@@ -497,6 +454,17 @@ export function DashboardPage() {
 
   // Taquillas activas (filtradas por visibilidad del usuario)
   const activeTaquillas = visibleTaquillas.filter(t => t.isApproved)
+
+  // Debug para participación en utilidades
+  useEffect(() => {
+    console.log('Debug Participación:', {
+      userType: currentUser?.userType,
+      isAgencia,
+      currentUserProfitPercent,
+      periodStats,
+      showDesglose: (isComercializadora || isSubdistribuidor || isAgencia) && currentUserProfitPercent > 0
+    })
+  }, [currentUser, isAgencia, currentUserProfitPercent, periodStats, isComercializadora, isSubdistribuidor])
 
   const handleRefreshAll = () => {
     loadDailyResults()
@@ -751,7 +719,7 @@ export function DashboardPage() {
                     </p>
                     <p className="text-xs text-muted-foreground">Utilidad</p>
                   </div>
-                  {(isComercializadora || isSubdistribuidor || isAgencia) && currentUserProfitPercent > 0 && periodStats.totalRaised > 0 && (
+                  {(isComercializadora || isSubdistribuidor || isAgencia) && (
                     <>
                       <div className="pt-1 border-t">
                         <p className={`text-sm font-semibold text-gray-600`}>
@@ -964,6 +932,7 @@ export function DashboardPage() {
             dateTo={appliedDateRange.to}
             allUsers={allUsers}
             isLoading={hierarchyLoading}
+            currentUserType={currentUser?.userType}
           />
         </CardContent>
       </Card>

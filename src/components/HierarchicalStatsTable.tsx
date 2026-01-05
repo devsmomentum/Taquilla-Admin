@@ -40,6 +40,7 @@ interface HierarchicalStatsTableProps {
   dateTo: Date
   allUsers: any[] // Todos los usuarios del sistema
   isLoading?: boolean
+  currentUserType?: string // Tipo del usuario actual
 }
 
 // Componente de fila expandible
@@ -454,7 +455,8 @@ export function HierarchicalStatsTable({
   dateFrom,
   dateTo,
   allUsers,
-  isLoading
+  isLoading,
+  currentUserType
 }: HierarchicalStatsTableProps) {
   // Calcular totales
   const totals = rootEntities.reduce((acc, entity) => ({
@@ -466,7 +468,9 @@ export function HierarchicalStatsTable({
   }), { sales: 0, prizes: 0, commission: 0, balance: 0, profit: 0 })
 
   // Determinar si mostrar columnas de participación y total
-  const showProfitColumn = rootType === 'admin' || rootType === 'comercializadora' || rootType === 'subdistribuidor' || rootType === 'agencia'
+  // Si el usuario es agencia y está viendo taquillas, también mostrar las columnas
+  const showProfitColumn = rootType === 'admin' || rootType === 'comercializadora' || rootType === 'subdistribuidor' || 
+                          rootType === 'agencia' || (rootType === 'taquilla' && currentUserType === 'agencia')
 
   if (isLoading) {
     return (

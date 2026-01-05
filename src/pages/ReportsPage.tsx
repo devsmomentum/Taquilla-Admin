@@ -638,7 +638,7 @@ export function ReportsPage() {
                     </p>
                     <p className="text-xs text-muted-foreground">Utilidad</p>
                   </div>
-                  {(isComercializadora || isSubdistribuidor || isAgencia) && currentUserProfitPercent > 0 && stats.totalRaised > 0 && (
+                  {(isComercializadora || isSubdistribuidor || isAgencia) && (
                     <>
                       <div className="pt-1 border-t">
                         <p className={`text-sm font-semibold text-gray-600`}>
