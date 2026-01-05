@@ -6,7 +6,7 @@ export interface SupabaseUser {
   name: string
   email: string
   is_active: boolean
-  userType: 'admin' | 'comercializadora' | 'agencia' | 'taquilla' // Tipo de usuario
+  userType: 'admin' | 'comercializadora' | 'subdistribuidor' | 'agencia' | 'taquilla' // Tipo de usuario
   // Solo para admins
   roles: Array<{
     id: string

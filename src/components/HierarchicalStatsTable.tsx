@@ -13,14 +13,15 @@ import {
   Buildings,
   Storefront,
   UserCircle,
-  Spinner
+  Spinner,
+  TreeStructure
 } from '@phosphor-icons/react'
 
 // Tipos para las estadísticas
 interface EntityStats {
   id: string
   name: string
-  type: 'admin' | 'comercializadora' | 'agencia' | 'taquilla'
+  type: 'admin' | 'comercializadora' | 'subdistribuidor' | 'agencia' | 'taquilla'
   sales: number
   prizes: number
   commission: number
@@ -33,7 +34,7 @@ interface EntityStats {
 }
 
 interface HierarchicalStatsTableProps {
-  rootType: 'admin' | 'comercializadora' | 'agencia' | 'taquilla'
+  rootType: 'admin' | 'comercializadora' | 'subdistribuidor' | 'agencia' | 'taquilla'
   rootEntities: EntityStats[]
   dateFrom: Date
   dateTo: Date
@@ -56,10 +57,11 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers }: Expandable
   const [isLoadingChildren, setIsLoadingChildren] = useState(false)
 
   // Determinar el tipo de hijos según el tipo actual
-  const getChildType = (parentType: string): 'comercializadora' | 'agencia' | 'taquilla' | null => {
+  const getChildType = (parentType: string): 'comercializadora' | 'subdistribuidor' | 'agencia' | 'taquilla' | null => {
     switch (parentType) {
       case 'admin': return 'comercializadora'
-      case 'comercializadora': return 'agencia'
+      case 'comercializadora': return 'subdistribuidor' // primero buscar subdistribuidores
+      case 'subdistribuidor': return 'agencia'
       case 'agencia': return 'taquilla'
       default: return null
     }
@@ -74,10 +76,24 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers }: Expandable
 
     try {
       // Filtrar usuarios hijos según el tipo
-      const childUsers = allUsers.filter(u => {
-        // Solo usar parentId para determinar la propiedad (no createdBy)
-        return u.userType === childType && u.parentId === entity.id
-      })
+      let childUsers: any[] = []
+      
+      if (entity.type === 'comercializadora') {
+        // Una comercializadora puede tener subdistribuidores y agencias directas
+        const subdistribuidores = allUsers.filter(u => 
+          u.userType === 'subdistribuidor' && u.parentId === entity.id
+        )
+        const agenciasDirectas = allUsers.filter(u => 
+          u.userType === 'agencia' && u.parentId === entity.id
+        )
+        
+        // Combinar subdistribuidores y agencias directas
+        childUsers = [...subdistribuidores, ...agenciasDirectas]
+      } else {
+        childUsers = allUsers.filter(u => {
+          return u.userType === childType && u.parentId === entity.id
+        })
+      }
 
       if (childUsers.length === 0) {
         setChildren([])
@@ -88,21 +104,57 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers }: Expandable
       // Obtener IDs de taquillas según el nivel
       let taquillaIds: string[] = []
 
-      if (childType === 'taquilla') {
-        taquillaIds = childUsers.map(u => u.id)
-      } else if (childType === 'agencia') {
-        // Obtener taquillas de estas agencias
-        const agencyIds = childUsers.map(u => u.id)
-        const taquillas = allUsers.filter(u => u.userType === 'taquilla' && agencyIds.includes(u.parentId))
-        taquillaIds = taquillas.map(t => t.id)
-      } else if (childType === 'comercializadora') {
-        // Obtener agencias de estas comercializadoras, luego taquillas de esas agencias
-        const comIds = childUsers.map(u => u.id)
-        const agencies = allUsers.filter(u => u.userType === 'agencia' && comIds.includes(u.parentId))
-        const agencyIds = agencies.map(a => a.id)
-        const taquillas = allUsers.filter(u => u.userType === 'taquilla' && agencyIds.includes(u.parentId))
-        taquillaIds = taquillas.map(t => t.id)
-      }
+      childUsers.forEach(child => {
+        if (child.userType === 'taquilla') {
+          taquillaIds.push(child.id)
+        } else if (child.userType === 'agencia') {
+          // Obtener taquillas de esta agencia
+          const agencyTaquillas = allUsers.filter(u => 
+            u.userType === 'taquilla' && u.parentId === child.id
+          )
+          taquillaIds.push(...agencyTaquillas.map(t => t.id))
+        } else if (child.userType === 'subdistribuidor') {
+          // Obtener agencias del subdistribuidor y luego sus taquillas
+          const subAgencies = allUsers.filter(u => 
+            u.userType === 'agencia' && u.parentId === child.id
+          )
+          subAgencies.forEach(agency => {
+            const agencyTaquillas = allUsers.filter(u => 
+              u.userType === 'taquilla' && u.parentId === agency.id
+            )
+            taquillaIds.push(...agencyTaquillas.map(t => t.id))
+          })
+        } else if (child.userType === 'comercializadora') {
+          // Obtener taquillas de comercializadoras (considerando subdistribuidores)
+          const directAgencies = allUsers.filter(u => 
+            u.userType === 'agencia' && u.parentId === child.id
+          )
+          const subdistribuidores = allUsers.filter(u => 
+            u.userType === 'subdistribuidor' && u.parentId === child.id
+          )
+          
+          // Taquillas de agencias directas
+          directAgencies.forEach(agency => {
+            const agencyTaquillas = allUsers.filter(u => 
+              u.userType === 'taquilla' && u.parentId === agency.id
+            )
+            taquillaIds.push(...agencyTaquillas.map(t => t.id))
+          })
+          
+          // Taquillas de agencias bajo subdistribuidores
+          subdistribuidores.forEach(sub => {
+            const subAgencies = allUsers.filter(u => 
+              u.userType === 'agencia' && u.parentId === sub.id
+            )
+            subAgencies.forEach(agency => {
+              const agencyTaquillas = allUsers.filter(u => 
+                u.userType === 'taquilla' && u.parentId === agency.id
+              )
+              taquillaIds.push(...agencyTaquillas.map(t => t.id))
+            })
+          })
+        }
+      })
 
       // Preparar fechas para la consulta
       const queryStart = startOfDay(dateFrom).toISOString()
@@ -147,24 +199,48 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers }: Expandable
         let sales = 0
         let prizes = 0
 
-        if (childType === 'taquilla') {
+        if (child.userType === 'taquilla') {
           sales = salesByUser.get(child.id) || 0
           prizes = prizesByUser.get(child.id) || 0
-        } else if (childType === 'agencia') {
+        } else if (child.userType === 'agencia') {
           // Sumar ventas/premios de las taquillas de esta agencia
           const agencyTaquillas = allUsers.filter(u => u.userType === 'taquilla' && u.parentId === child.id)
           agencyTaquillas.forEach(t => {
             sales += salesByUser.get(t.id) || 0
             prizes += prizesByUser.get(t.id) || 0
           })
-        } else if (childType === 'comercializadora') {
-          // Sumar ventas/premios de las taquillas de las agencias de esta comercializadora
-          const comAgencies = allUsers.filter(u => u.userType === 'agencia' && u.parentId === child.id)
-          comAgencies.forEach(agency => {
+        } else if (child.userType === 'subdistribuidor') {
+          // Sumar ventas/premios de las taquillas de las agencias de este subdistribuidor
+          const subAgencies = allUsers.filter(u => u.userType === 'agencia' && u.parentId === child.id)
+          subAgencies.forEach(agency => {
             const agencyTaquillas = allUsers.filter(u => u.userType === 'taquilla' && u.parentId === agency.id)
             agencyTaquillas.forEach(t => {
               sales += salesByUser.get(t.id) || 0
               prizes += prizesByUser.get(t.id) || 0
+            })
+          })
+        } else if (child.userType === 'comercializadora') {
+          // Sumar ventas/premios de las taquillas (considerando subdistribuidores)
+          // Agencias directas
+          const directAgencies = allUsers.filter(u => u.userType === 'agencia' && u.parentId === child.id)
+          directAgencies.forEach(agency => {
+            const agencyTaquillas = allUsers.filter(u => u.userType === 'taquilla' && u.parentId === agency.id)
+            agencyTaquillas.forEach(t => {
+              sales += salesByUser.get(t.id) || 0
+              prizes += prizesByUser.get(t.id) || 0
+            })
+          })
+          
+          // Agencias bajo subdistribuidores
+          const subdistribuidores = allUsers.filter(u => u.userType === 'subdistribuidor' && u.parentId === child.id)
+          subdistribuidores.forEach(sub => {
+            const subAgencies = allUsers.filter(u => u.userType === 'agencia' && u.parentId === sub.id)
+            subAgencies.forEach(agency => {
+              const agencyTaquillas = allUsers.filter(u => u.userType === 'taquilla' && u.parentId === agency.id)
+              agencyTaquillas.forEach(t => {
+                sales += salesByUser.get(t.id) || 0
+                prizes += prizesByUser.get(t.id) || 0
+              })
             })
           })
         }
@@ -183,23 +259,28 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers }: Expandable
 
         // Determinar si tiene hijos
         let hasChildren = false
-        if (childType === 'comercializadora') {
+        if (child.userType === 'comercializadora') {
+          hasChildren = allUsers.some(u => 
+            (u.userType === 'subdistribuidor' || u.userType === 'agencia') && 
+            u.parentId === child.id
+          )
+        } else if (child.userType === 'subdistribuidor') {
           hasChildren = allUsers.some(u => u.userType === 'agencia' && u.parentId === child.id)
-        } else if (childType === 'agencia') {
+        } else if (child.userType === 'agencia') {
           hasChildren = allUsers.some(u => u.userType === 'taquilla' && u.parentId === child.id)
         }
 
         return {
           id: child.id,
           name: child.name,
-          type: childType,
+          type: child.userType as EntityStats['type'],
           sales,
           prizes,
           commission,
           commissionPercent,
           balance,
-          profit: childType === 'comercializadora' ? profit : undefined,
-          profitPercent: childType === 'comercializadora' ? profitPercent : undefined,
+          profit: child.userType === 'comercializadora' ? profit : undefined,
+          profitPercent: child.userType === 'comercializadora' ? profitPercent : undefined,
           parentId: child.parentId,
           hasChildren
         }
@@ -231,6 +312,7 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers }: Expandable
     switch (entity.type) {
       case 'admin': return <UserCircle className="h-4 w-4 text-white" weight="fill" />
       case 'comercializadora': return <Buildings className="h-4 w-4 text-white" weight="fill" />
+      case 'subdistribuidor': return <TreeStructure className="h-4 w-4 text-white" weight="fill" />
       case 'agencia': return <Storefront className="h-4 w-4 text-white" weight="fill" />
       case 'taquilla': return <User className="h-4 w-4 text-white" weight="fill" />
     }
@@ -241,6 +323,7 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers }: Expandable
     switch (entity.type) {
       case 'admin': return 'from-slate-500 to-slate-600'
       case 'comercializadora': return 'from-indigo-500 to-indigo-600'
+      case 'subdistribuidor': return 'from-emerald-500 to-emerald-600'
       case 'agencia': return 'from-cyan-500 to-cyan-600'
       case 'taquilla': return 'from-violet-500 to-violet-600'
     }
@@ -251,6 +334,7 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers }: Expandable
     switch (entity.type) {
       case 'admin': return 'Admin'
       case 'comercializadora': return 'Com.'
+      case 'subdistribuidor': return 'Subdist.'
       case 'agencia': return 'Agencia'
       case 'taquilla': return 'Taquilla'
     }

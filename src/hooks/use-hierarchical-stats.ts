@@ -5,7 +5,7 @@ import { startOfDay, endOfDay } from 'date-fns'
 interface EntityStats {
   id: string
   name: string
-  type: 'admin' | 'comercializadora' | 'agencia' | 'taquilla'
+  type: 'admin' | 'comercializadora' | 'subdistribuidor' | 'agencia' | 'taquilla'
   sales: number
   prizes: number
   commission: number
@@ -36,7 +36,7 @@ export function useHierarchicalStats(options: UseHierarchicalStatsOptions) {
   const [error, setError] = useState<string | null>(null)
 
   // Determinar el tipo de usuario actual y qué entidades raíz mostrar
-  const rootType = useMemo((): 'admin' | 'comercializadora' | 'agencia' | 'taquilla' => {
+  const rootType = useMemo((): 'admin' | 'comercializadora' | 'subdistribuidor' | 'agencia' | 'taquilla' => {
     if (!currentUser) return 'admin'
 
     const isSuperAdmin = currentUser.all_permissions?.includes('*')
@@ -45,7 +45,8 @@ export function useHierarchicalStats(options: UseHierarchicalStatsOptions) {
     if (userType === 'admin' || !userType) {
       return isSuperAdmin ? 'admin' : 'comercializadora'
     }
-    if (userType === 'comercializadora') return 'agencia'
+    if (userType === 'comercializadora') return 'subdistribuidor'
+    if (userType === 'subdistribuidor') return 'agencia'
     if (userType === 'agencia') return 'taquilla'
 
     return 'taquilla'
@@ -86,7 +87,19 @@ export function useHierarchicalStats(options: UseHierarchicalStatsOptions) {
           )
         }
       } else if (userType === 'comercializadora') {
-        // Comercializadora: mostrar sus agencias
+        // Comercializadora: mostrar sus subdistribuidores y agencias directas
+        const subdistribuidores = allUsers.filter(u =>
+          u.userType === 'subdistribuidor' && u.parentId === currentUser.id
+        )
+        
+        const directAgencies = allUsers.filter(u =>
+          u.userType === 'agencia' && u.parentId === currentUser.id
+        )
+        
+        // Combinar subdistribuidores y agencias directas
+        entitiesToShow = [...subdistribuidores, ...directAgencies]
+      } else if (userType === 'subdistribuidor') {
+        // Subdistribuidor: mostrar sus agencias
         entitiesToShow = allUsers.filter(u =>
           u.userType === 'agencia' && u.parentId === currentUser.id
         )
@@ -115,13 +128,54 @@ export function useHierarchicalStats(options: UseHierarchicalStatsOptions) {
           u.userType === 'taquilla' && agencyIds.includes(u.parentId)
         )
         taquillaIds = taquillas.map(t => t.id)
+      } else if (rootType === 'subdistribuidor') {
+        // Obtener taquillas de subdistribuidores y agencias directas
+        entitiesToShow.forEach(entity => {
+          if (entity.userType === 'subdistribuidor') {
+            // Para subdistribuidor, obtener sus agencias y luego las taquillas
+            const subAgencies = allUsers.filter(u =>
+              u.userType === 'agencia' && u.parentId === entity.id
+            )
+            subAgencies.forEach(agency => {
+              const agencyTaquillas = allUsers.filter(u =>
+                u.userType === 'taquilla' && u.parentId === agency.id
+              )
+              taquillaIds.push(...agencyTaquillas.map(t => t.id))
+            })
+          } else if (entity.userType === 'agencia') {
+            // Para agencia directa, obtener sus taquillas
+            const agencyTaquillas = allUsers.filter(u =>
+              u.userType === 'taquilla' && u.parentId === entity.id
+            )
+            taquillaIds.push(...agencyTaquillas.map(t => t.id))
+          }
+        })
       } else if (rootType === 'comercializadora') {
         // Obtener taquillas de las agencias de estas comercializadoras
+        // Ahora debemos considerar subdistribuidores también
         const comIds = entitiesToShow.map(e => e.id)
-        const agencies = allUsers.filter(u =>
+        
+        // Primero obtenemos las agencias directas
+        const directAgencies = allUsers.filter(u =>
           u.userType === 'agencia' && comIds.includes(u.parentId)
         )
-        const agencyIds = agencies.map(a => a.id)
+        
+        // Luego obtenemos los subdistribuidores
+        const subdistribuidores = allUsers.filter(u =>
+          u.userType === 'subdistribuidor' && comIds.includes(u.parentId)
+        )
+        const subIds = subdistribuidores.map(s => s.id)
+        
+        // Obtenemos las agencias de los subdistribuidores
+        const subdistAgencies = allUsers.filter(u =>
+          u.userType === 'agencia' && subIds.includes(u.parentId)
+        )
+        
+        // Combinamos todas las agencias
+        const allAgencies = [...directAgencies, ...subdistAgencies]
+        const agencyIds = allAgencies.map(a => a.id)
+        
+        // Finalmente obtenemos todas las taquillas
         const taquillas = allUsers.filter(u =>
           u.userType === 'taquilla' && agencyIds.includes(u.parentId)
         )
@@ -186,18 +240,66 @@ export function useHierarchicalStats(options: UseHierarchicalStatsOptions) {
             sales += salesByTaquilla.get(t.id) || 0
             prizes += prizesByTaquilla.get(t.id) || 0
           })
+        } else if (rootType === 'subdistribuidor') {
+          // Para subdistribuidor/agencia mixto
+          if (entity.userType === 'subdistribuidor') {
+            // Sumar ventas/premios de las taquillas de las agencias de este subdistribuidor
+            const subAgencies = allUsers.filter(u =>
+              u.userType === 'agencia' && u.parentId === entity.id
+            )
+            subAgencies.forEach(agency => {
+              const agencyTaquillas = allUsers.filter(u =>
+                u.userType === 'taquilla' && u.parentId === agency.id
+              )
+              agencyTaquillas.forEach(t => {
+                sales += salesByTaquilla.get(t.id) || 0
+                prizes += prizesByTaquilla.get(t.id) || 0
+              })
+            })
+          } else if (entity.userType === 'agencia') {
+            // Para agencia directa
+            const agencyTaquillas = allUsers.filter(u =>
+              u.userType === 'taquilla' && u.parentId === entity.id
+            )
+            agencyTaquillas.forEach(t => {
+              sales += salesByTaquilla.get(t.id) || 0
+              prizes += prizesByTaquilla.get(t.id) || 0
+            })
+          }
         } else if (rootType === 'comercializadora') {
           // Sumar ventas/premios de las taquillas de las agencias de esta comercializadora
-          const comAgencies = allUsers.filter(u =>
+          // Incluye tanto agencias directas como las que están bajo subdistribuidores
+          
+          // Agencias directas
+          const directAgencies = allUsers.filter(u =>
             u.userType === 'agencia' && u.parentId === entity.id
           )
-          comAgencies.forEach(agency => {
+          directAgencies.forEach(agency => {
             const agencyTaquillas = allUsers.filter(u =>
               u.userType === 'taquilla' && u.parentId === agency.id
             )
             agencyTaquillas.forEach(t => {
               sales += salesByTaquilla.get(t.id) || 0
               prizes += prizesByTaquilla.get(t.id) || 0
+            })
+          })
+          
+          // Agencias bajo subdistribuidores
+          const subdistribuidores = allUsers.filter(u =>
+            u.userType === 'subdistribuidor' && u.parentId === entity.id
+          )
+          subdistribuidores.forEach(sub => {
+            const subAgencies = allUsers.filter(u =>
+              u.userType === 'agencia' && u.parentId === sub.id
+            )
+            subAgencies.forEach(agency => {
+              const agencyTaquillas = allUsers.filter(u =>
+                u.userType === 'taquilla' && u.parentId === agency.id
+              )
+              agencyTaquillas.forEach(t => {
+                sales += salesByTaquilla.get(t.id) || 0
+                prizes += prizesByTaquilla.get(t.id) || 0
+              })
             })
           })
         } else if (rootType === 'admin') {
@@ -226,10 +328,10 @@ export function useHierarchicalStats(options: UseHierarchicalStatsOptions) {
         const commission = sales * (commissionPercent / 100)
         const balance = sales - prizes - commission
 
-        // Calcular ganancia solo para comercializadoras
+        // Calcular ganancia solo para comercializadoras y subdistribuidores
         let profit = 0
         let profitPercent = 0
-        if (rootType === 'comercializadora' || entity.userType === 'comercializadora') {
+        if (rootType === 'comercializadora' || entity.userType === 'comercializadora' || entity.userType === 'subdistribuidor') {
           profitPercent = entity.shareOnProfits || 0
           profit = balance > 0 ? balance * (profitPercent / 100) : 0
         }
@@ -242,6 +344,12 @@ export function useHierarchicalStats(options: UseHierarchicalStatsOptions) {
             u.parentId === entity.id
           )
         } else if (rootType === 'comercializadora' || entity.userType === 'comercializadora') {
+          // Una comercializadora puede tener subdistribuidores o agencias
+          hasChildren = allUsers.some(u =>
+            (u.userType === 'subdistribuidor' || u.userType === 'agencia') && 
+            u.parentId === entity.id
+          )
+        } else if (entity.userType === 'subdistribuidor') {
           hasChildren = allUsers.some(u =>
             u.userType === 'agencia' && u.parentId === entity.id
           )
@@ -260,8 +368,8 @@ export function useHierarchicalStats(options: UseHierarchicalStatsOptions) {
           commission,
           commissionPercent,
           balance,
-          profit: rootType === 'comercializadora' ? profit : undefined,
-          profitPercent: rootType === 'comercializadora' ? profitPercent : undefined,
+          profit: (rootType === 'comercializadora' || rootType === 'subdistribuidor' || entity.userType === 'subdistribuidor') ? profit : undefined,
+          profitPercent: (rootType === 'comercializadora' || rootType === 'subdistribuidor' || entity.userType === 'subdistribuidor') ? profitPercent : undefined,
           parentId: entity.parentId,
           hasChildren
         }

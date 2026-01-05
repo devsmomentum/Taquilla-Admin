@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Switch } from '@/components/ui/switch'
 import { Info } from '@phosphor-icons/react'
+import { useApp } from '@/contexts/AppContext'
 import type { Agency, Comercializadora } from '@/lib/types'
 
 interface Props {
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function AgencyDialog({ open, onOpenChange, onSave, comercializadoras, agency, defaultParentId }: Props) {
+    const { subdistribuidores, currentUser } = useApp()
     const [name, setName] = useState('')
     const [address, setAddress] = useState('')
     const [parentId, setParentId] = useState('')
@@ -30,14 +32,25 @@ export function AgencyDialog({ open, onOpenChange, onSave, comercializadoras, ag
     const [saving, setSaving] = useState(false)
     const [errors, setErrors] = useState<Record<string, string>>({})
 
-    // Obtener la comercializadora seleccionada y sus límites de porcentaje
-    const selectedComercializadora = useMemo(() => {
+    // Determinar si el padre es un subdistribuidor o comercializadora
+    const parentEntity = useMemo(() => {
         if (!parentId) return null
+        
+        // Si el usuario actual es subdistribuidor, el parentId es su propio ID
+        if (currentUser?.userType === 'subdistribuidor') {
+            return subdistribuidores.find(s => s.id === currentUser.id)
+        }
+        
+        // Buscar primero en subdistribuidores
+        const subdistribuidor = subdistribuidores.find(s => s.id === parentId)
+        if (subdistribuidor) return subdistribuidor
+        
+        // Si no, buscar en comercializadoras
         return comercializadoras.find(c => c.id === parentId) || null
-    }, [parentId, comercializadoras])
+    }, [parentId, comercializadoras, subdistribuidores, currentUser])
 
-    const maxShareOnSales = selectedComercializadora?.shareOnSales ?? 100
-    const maxShareOnProfits = selectedComercializadora?.shareOnProfits ?? 100
+    const maxShareOnSales = parentEntity?.shareOnSales ?? 100
+    const maxShareOnProfits = parentEntity?.shareOnProfits ?? 100
 
     useEffect(() => {
         if (open) {
@@ -94,7 +107,8 @@ export function AgencyDialog({ open, onOpenChange, onSave, comercializadoras, ag
         } else if (salesValue < 0) {
             newErrors.shareOnSales = 'No puede ser negativo'
         } else if (salesValue > maxShareOnSales) {
-            newErrors.shareOnSales = `No puede superar ${maxShareOnSales}% (límite de la comercializadora)`
+            const parentType = currentUser?.userType === 'subdistribuidor' ? 'subdistribuidor' : 'comercializadora'
+            newErrors.shareOnSales = `No puede superar ${maxShareOnSales}% (límite del ${parentType})`
         }
 
         if (!shareOnProfits) {
@@ -102,7 +116,8 @@ export function AgencyDialog({ open, onOpenChange, onSave, comercializadoras, ag
         } else if (profitsValue < 0) {
             newErrors.shareOnProfits = 'No puede ser negativo'
         } else if (profitsValue > maxShareOnProfits) {
-            newErrors.shareOnProfits = `No puede superar ${maxShareOnProfits}% (límite de la comercializadora)`
+            const parentType = currentUser?.userType === 'subdistribuidor' ? 'subdistribuidor' : 'comercializadora'
+            newErrors.shareOnProfits = `No puede superar ${maxShareOnProfits}% (límite del ${parentType})`
         }
 
         setErrors(newErrors)
@@ -240,6 +255,17 @@ export function AgencyDialog({ open, onOpenChange, onSave, comercializadoras, ag
                             </Select>
                             {errors.parentId && <p className="text-xs text-destructive">{errors.parentId}</p>}
                         </div>
+                    )}
+
+                    {parentEntity && (
+                        <Alert>
+                            <Info className="h-4 w-4" />
+                            <AlertDescription>
+                                Los porcentajes no pueden superar los límites del {currentUser?.userType === 'subdistribuidor' ? 'subdistribuidor' : 'padre'}: 
+                                <strong> {maxShareOnSales}% en ventas</strong> y 
+                                <strong> {maxShareOnProfits}% en participación</strong>
+                            </AlertDescription>
+                        </Alert>
                     )}
 
                     <div className="grid grid-cols-2 gap-4">

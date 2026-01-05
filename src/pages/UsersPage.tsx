@@ -113,14 +113,14 @@ export function UsersPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Comercializadores</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Usuarios</h2>
           <p className="text-muted-foreground">
-            Gestiona los comercializadores del sistema
+            Gestiona los usuarios administradores del sistema
           </p>
         </div>
         <Button onClick={handleCreate} className="gap-2 cursor-pointer">
           <Plus weight="bold" />
-          Nuevo Comercializador
+          Nuevo Usuario
         </Button>
       </div>
 

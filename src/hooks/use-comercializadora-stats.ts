@@ -48,6 +48,10 @@ export interface UseComercializadoraStatsOptions {
     id: string
     parentId: string
   }>
+  subdistribuidores?: Array<{
+    id: string
+    parentId: string
+  }>
   taquillas: Array<{
     id: string
     parentId?: string
@@ -90,7 +94,7 @@ export function useComercializadoraStats(options: UseComercializadoraStatsOption
   optionsRef.current = options
 
   const loadStats = useCallback(async () => {
-    const { comercializadoras, agencies, taquillas, dateFrom, dateTo } = optionsRef.current
+    const { comercializadoras, agencies, subdistribuidores, taquillas, dateFrom, dateTo } = optionsRef.current
 
     if (!comercializadoras || comercializadoras.length === 0) {
       setStats([])
@@ -117,14 +121,29 @@ export function useComercializadoraStats(options: UseComercializadoraStatsOption
       const comercializadoraTaquillasMap = new Map<string, string[]>()
 
       comercializadoras.forEach(com => {
-        // Get agencies for this comercializadora (agencies where parentId = comercializadora.id)
-        const comAgencyIds = agencies
+        // Get direct agencies for this comercializadora
+        const directAgencyIds = agencies
           .filter(a => a.parentId === com.id)
           .map(a => a.id)
 
-        // Get taquillas for these agencies (taquillas where parentId is in agencyIds)
+        // Get subdistribuidores for this comercializadora
+        const comSubdistribuidorIds = subdistribuidores
+          ?.filter(s => s.parentId === com.id)
+          .map(s => s.id) || []
+
+        // Get agencies under subdistribuidores
+        const subdistAgencyIds = subdistribuidores && comSubdistribuidorIds.length > 0
+          ? agencies
+              .filter(a => comSubdistribuidorIds.includes(a.parentId))
+              .map(a => a.id)
+          : []
+
+        // Combine all agency IDs
+        const allComAgencyIds = [...directAgencyIds, ...subdistAgencyIds]
+
+        // Get taquillas for all these agencies
         const comTaquillaIds = taquillas
-          .filter(t => comAgencyIds.includes(t.parentId || ''))
+          .filter(t => allComAgencyIds.includes(t.parentId || ''))
           .map(t => t.id)
 
         comercializadoraTaquillasMap.set(com.id, comTaquillaIds)

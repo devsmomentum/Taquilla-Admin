@@ -35,6 +35,7 @@ import { RolesPage } from './pages/RolesPage'
 import { ApiKeysPage } from './pages/ApiKeysPage'
 import { ComercializadorasPage } from './pages/ComercializadorasPage'
 import { ComercializadoraAgenciasPage } from './pages/ComercializadoraAgenciasPage'
+import { ComercializadoraSubdistribuidoresPage } from './pages/ComercializadoraSubdistribuidoresPage'
 import { AgenciaTaquillasPage } from './pages/AgenciaTaquillasPage'
 import { SettingsPage } from './pages/SettingsPage'
 
@@ -112,7 +113,7 @@ if (!rootEl) {
                     <WinnersPage />
                   </ProtectedRoute>
                 } />
-                <Route path="/comercializadores" element={
+                <Route path="/users" element={
                   <ProtectedRoute requiredPermission="users">
                     <UsersPage />
                   </ProtectedRoute>
@@ -127,18 +128,48 @@ if (!rootEl) {
                     <ApiKeysPage />
                   </ProtectedRoute>
                 } />
-                <Route path="/subdistribuidores" element={
+                <Route path="/comercializadores" element={
                   <ProtectedRoute requiredPermission="comercializadoras">
                     <ComercializadorasPage />
                   </ProtectedRoute>
                 } />
-                <Route path="/subdistribuidores/:id/agencias" element={
+                <Route path="/comercializadores/:id/agencias" element={
                   <ProtectedRoute requiredPermission="comercializadoras">
                     <ComercializadoraAgenciasPage />
                   </ProtectedRoute>
                 } />
-                <Route path="/subdistribuidores/:id/agencias/:agencyId/taquillas" element={
+                <Route path="/comercializadores/:id/subdistribuidores" element={
                   <ProtectedRoute requiredPermission="comercializadoras">
+                    <ComercializadoraSubdistribuidoresPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/comercializadores/:comercializadoraId/subdistribuidores/:subdistribuidorId/agencias" element={
+                  <ProtectedRoute>
+                    <ComercializadoraAgenciasPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/subdistribuidor/agencias" element={
+                  <ProtectedRoute>
+                    <ComercializadoraAgenciasPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/comercializadores/:comercializadoraId/subdistribuidores/:subdistribuidorId/agencias/:agencyId/taquillas" element={
+                  <ProtectedRoute requiredPermission="comercializadoras">
+                    <AgenciaTaquillasPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/comercializadores/:id/agencias/:agencyId/taquillas" element={
+                  <ProtectedRoute requiredPermission="comercializadoras">
+                    <AgenciaTaquillasPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/agencias/:id/taquillas" element={
+                  <ProtectedRoute requiredPermission="comercializadoras">
+                    <AgenciaTaquillasPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/agencia/taquillas" element={
+                  <ProtectedRoute>
                     <AgenciaTaquillasPage />
                   </ProtectedRoute>
                 } />

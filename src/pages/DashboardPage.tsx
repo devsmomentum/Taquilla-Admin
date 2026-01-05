@@ -44,6 +44,7 @@ export function DashboardPage() {
     visibleTaquillaIds,
     currentUser,
     comercializadoras,
+    subdistribuidores,
     agencies,
     visibleAgencies,
     users: allUsers
@@ -83,12 +84,14 @@ export function DashboardPage() {
 
   // Determinar tipo de usuario
   const isComercializadora = currentUser?.userType === 'comercializadora'
+  const isSubdistribuidor = currentUser?.userType === 'subdistribuidor'
   const isAgencia = currentUser?.userType === 'agencia'
 
   // Stats de comercializadoras para la tabla (solo para admin)
   const { stats: comercializadoraStats, loading: comercializadoraStatsLoading, refresh: refreshComercializadoraStats } = useComercializadoraStats({
     comercializadoras: comercializadoras || [],
     agencies: visibleAgencies || agencies || [],
+    subdistribuidores: subdistribuidores || [],
     taquillas: visibleTaquillas || [],
     dateFrom: appliedDateRange.from,
     dateTo: appliedDateRange.to
@@ -295,6 +298,12 @@ export function DashboardPage() {
       return currentComercializadora?.shareOnSales || 0
     }
 
+    if (isSubdistribuidor) {
+      // Buscar el subdistribuidor actual - usar el id del usuario
+      const currentSubdistribuidor = subdistribuidores?.find(s => s.id === currentUser.id)
+      return currentSubdistribuidor?.shareOnSales || 0
+    }
+
     if (isAgencia) {
       // Buscar la agencia actual
       const currentAgency = agencies?.find(a => a.id === currentUser.id)
@@ -302,7 +311,26 @@ export function DashboardPage() {
     }
 
     return 0
-  }, [currentUser, isComercializadora, isAgencia, comercializadoras, agencies])
+  }, [currentUser, isComercializadora, isSubdistribuidor, isAgencia, comercializadoras, subdistribuidores, agencies])
+
+  // Obtener el porcentaje de participación en utilidades del usuario logueado
+  const currentUserProfitPercent = useMemo(() => {
+    if (!currentUser) return 0
+
+    if (isComercializadora) {
+      // Buscar la comercializadora actual
+      const currentComercializadora = comercializadoras?.find(c => c.userId === currentUser.id)
+      return currentComercializadora?.shareOnProfits || 0
+    }
+
+    if (isSubdistribuidor) {
+      // Buscar el subdistribuidor actual - usar el id del usuario
+      const currentSubdistribuidor = subdistribuidores?.find(s => s.id === currentUser.id)
+      return currentSubdistribuidor?.shareOnProfits || 0
+    }
+
+    return 0
+  }, [currentUser, isComercializadora, isSubdistribuidor, comercializadoras, subdistribuidores])
 
   // Estadísticas de resultados - usando datos según el perfil del usuario
   const periodStats = useMemo(() => {
@@ -332,6 +360,24 @@ export function DashboardPage() {
       const totalSales = agencyTotals.totalSales
       const totalPrizes = agencyTotals.totalPrizes
       // Calcular comisión basada en el % de la comercializadora logueada
+      const totalCommissions = totalSales * (currentUserCommissionPercent / 100)
+      const totalRaised = totalSales - totalPrizes - totalCommissions
+
+      return {
+        totalSales,
+        totalPayout: totalPrizes,
+        totalCommissions,
+        totalRaised,
+        resultsCount,
+        resultsWithWinners
+      }
+    }
+
+    // Para SUBDISTRIBUIDOR: usar datos de agencias pero calcular comisión con el % del usuario
+    if (isSubdistribuidor && agencyStats && agencyStats.length > 0) {
+      const totalSales = agencyTotals.totalSales
+      const totalPrizes = agencyTotals.totalPrizes
+      // Calcular comisión basada en el % del subdistribuidor logueado
       const totalCommissions = totalSales * (currentUserCommissionPercent / 100)
       const totalRaised = totalSales - totalPrizes - totalCommissions
 
@@ -377,7 +423,7 @@ export function DashboardPage() {
       resultsCount,
       resultsWithWinners
     }
-  }, [dailyResults, appliedDateRange, filteredWinners, salesStats, comercializadoraStats, comercializadoraTotals, agencyStats, agencyTotals, taquillaStats, taquillaTotals, isAdmin, isComercializadora, isAgencia, periodType, currentUserCommissionPercent])
+  }, [dailyResults, appliedDateRange, filteredWinners, salesStats, comercializadoraStats, comercializadoraTotals, agencyStats, agencyTotals, taquillaStats, taquillaTotals, isAdmin, isComercializadora, isSubdistribuidor, isAgencia, periodType, currentUserCommissionPercent])
 
   // Últimos resultados (para todos los usuarios)
   const latestResults = useMemo(() => {
@@ -645,19 +691,19 @@ export function DashboardPage() {
                     </p>
                     <p className="text-xs text-muted-foreground">Utilidad</p>
                   </div>
-                  {(isComercializadora || isAgencia) && currentUserCommissionPercent > 0 && (
+                  {(isComercializadora || isSubdistribuidor) && currentUserProfitPercent > 0 && periodStats.totalRaised > 0 && (
                     <>
-                      <div>
-                        <p className={`text-sm font-semibold ${periodStats.totalRaised >= 0 ? 'text-gray-600' : 'text-red-600'}`}>
-                          {periodStats.totalRaised < 0 ? '-' : ''}{formatCurrency(Math.abs(periodStats.totalRaised) * (currentUserCommissionPercent / 100))}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Participación ({currentUserCommissionPercent}%)</p>
-                      </div>
                       <div className="pt-1 border-t">
-                        <p className={`text-lg font-bold ${periodStats.totalRaised >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
-                          {periodStats.totalRaised < 0 ? '-' : ''}{formatCurrency(Math.abs(periodStats.totalRaised) * (1 - currentUserCommissionPercent / 100))}
+                        <p className={`text-sm font-semibold text-gray-600`}>
+                          {formatCurrency(periodStats.totalRaised * (currentUserProfitPercent / 100))}
                         </p>
-                        <p className="text-xs text-muted-foreground">Total</p>
+                        <p className="text-xs text-muted-foreground">Mi Participación ({currentUserProfitPercent}%)</p>
+                      </div>
+                      <div className="pt-1">
+                        <p className={`text-lg font-bold text-gray-900`}>
+                          {formatCurrency(periodStats.totalRaised * (1 - currentUserProfitPercent / 100))}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Restante</p>
                       </div>
                     </>
                   )}
@@ -840,6 +886,7 @@ export function DashboardPage() {
             <h3 className="font-semibold">
               {hierarchyRootType === 'admin' && 'Desglose por Administrador'}
               {hierarchyRootType === 'comercializadora' && 'Desglose por Comercializadora'}
+              {hierarchyRootType === 'subdistribuidor' && 'Desglose por Subdistribuidor/Agencia'}
               {hierarchyRootType === 'agencia' && 'Desglose por Agencia'}
               {hierarchyRootType === 'taquilla' && 'Desglose por Taquilla'}
             </h3>
