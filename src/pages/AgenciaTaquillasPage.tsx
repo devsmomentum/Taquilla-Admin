@@ -16,7 +16,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 export function AgenciaTaquillasPage() {
-  const { id: comercializadoraId, agencyId } = useParams<{ id?: string; agencyId?: string }>()
+  const { id: comercializadoraId, agencyId, comercializadoraId: comercializadoraIdAlt, subdistribuidorId } = useParams<{ id?: string; agencyId?: string; comercializadoraId?: string; subdistribuidorId?: string }>()
   const navigate = useNavigate()
   const {
     comercializadoras,
@@ -45,7 +45,10 @@ export function AgenciaTaquillasPage() {
   const [statsDialogOpen, setStatsDialogOpen] = useState(false)
   const [statsTaquilla, setStatsTaquilla] = useState<Taquilla | null>(null)
 
-  const comercializadora = comercializadoras.find(c => c.id === comercializadoraId)
+  // Usar comercializadoraIdAlt si viene de la ruta con subdistribuidor
+  const effectiveComercializadoraId = comercializadoraIdAlt || comercializadoraId
+  const comercializadora = comercializadoras.find(c => c.id === effectiveComercializadoraId)
+  const subdistribuidor = subdistribuidorId ? subdistribuidores.find(s => s.id === subdistribuidorId) : null
   const agency = isAgenciaSelf 
     ? agencies.find(a => a.id === currentUser.id)
     : agencies.find(a => a.id === agencyId)
@@ -211,11 +214,22 @@ export function AgenciaTaquillasPage() {
           </button>
           <span className="text-muted-foreground">/</span>
           <button
-            onClick={() => navigate(`/comercializadoras/${comercializadoraId}/agencias`)}
+            onClick={() => navigate(`/comercializadoras/${effectiveComercializadoraId}/${subdistribuidor ? 'subdistribuidores' : 'agencias'}`)}
             className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
           >
             {comercializadora.name}
           </button>
+          {subdistribuidor && (
+            <>
+              <span className="text-muted-foreground">/</span>
+              <button
+                onClick={() => navigate(`/comercializadoras/${effectiveComercializadoraId}/subdistribuidores/${subdistribuidorId}/agencias`)}
+                className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+              >
+                {subdistribuidor.name}
+              </button>
+            </>
+          )}
           <span className="text-muted-foreground">/</span>
           <span className="font-medium text-foreground">{agency.name}</span>
         </div>
@@ -453,7 +467,9 @@ export function AgenciaTaquillasPage() {
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         onSave={handleCreateSave}
-        agencies={isAgenciaSelf ? [agency].filter(Boolean) : agencies.filter(a => a.parentId === comercializadoraId)}
+        agencies={isAgenciaSelf ? [agency].filter(Boolean) : 
+                 subdistribuidorId ? agencies.filter(a => a.parentId === subdistribuidorId) :
+                 agencies.filter(a => a.parentId === effectiveComercializadoraId)}
         defaultAgencyId={effectiveAgencyId}
       />
 
@@ -463,7 +479,9 @@ export function AgenciaTaquillasPage() {
         onOpenChange={setEditDialogOpen}
         onSave={handleEditSave}
         taquilla={editingTaquilla}
-        agencies={isAgenciaSelf ? [agency].filter(Boolean) : agencies.filter(a => a.parentId === comercializadoraId)}
+        agencies={isAgenciaSelf ? [agency].filter(Boolean) : 
+                 subdistribuidorId ? agencies.filter(a => a.parentId === subdistribuidorId) :
+                 agencies.filter(a => a.parentId === effectiveComercializadoraId)}
       />
 
       {/* Diálogo de confirmación para eliminar */}

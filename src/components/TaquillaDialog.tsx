@@ -273,6 +273,19 @@ export function TaquillaDialog({ open, onOpenChange, onSave, agencies, defaultAg
             </div>
           )}
 
+          {/* Mostrar agencia seleccionada cuando viene por defecto */}
+          {defaultAgencyId && !taquilla && agencies.length > 0 && (
+            <div className="grid gap-2">
+              <Label>Agencia</Label>
+              <div className="p-2 rounded-md bg-muted">
+                {agencies.find(a => a.id === defaultAgencyId)?.name || 'Agencia no encontrada'}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                La taquilla será creada en esta agencia
+              </p>
+            </div>
+          )}
+
           {selectedAgency && (
             <Alert>
               <Info className="h-4 w-4" />
