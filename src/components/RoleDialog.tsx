@@ -24,7 +24,7 @@ const AVAILABLE_MODULES: { value: ModulePermission; label: string; description: 
   { value: "users", label: "Usuarios", description: "Gestionar usuarios del sistema" },
   { value: "roles", label: "Roles", description: "Crear y editar roles" },
   { value: "api-keys", label: "API Keys", description: "Gestionar claves de API" },
-  { value: "comercializadoras", label: "Subdistribuidores", description: "Gestionar subdistribuidores, agencias y taquillas" },
+  { value: "comercializadoras", label: "Comercializadores", description: "Gestionar comercializadores, subdistribuidores, agencias y taquillas" },
   { value: "porcentajes", label: "Porcentajes", description: "Configurar porcentajes de distribución" },
   { value: "settings", label: "Configuración", description: "Configuraciones generales del sistema" },
 ]

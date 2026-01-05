@@ -26,33 +26,50 @@ import {
 
 // Items de navegación base - el path y label se ajustan según el tipo de usuario
 const getNavItems = (currentUser: any) => {
-  let comercializadorasPath = '/subdistribuidores'
-  let comercializadorasLabel = 'Subdistribuidores'
+  let comercializadorasPath = '/comercializadores'
+  let comercializadorasLabel = 'Comercializadores'
 
-  // Para comercializadoras, el link va directo a sus agencias
+  // Para comercializadoras, el link va directo a sus subdistribuidores
   if (currentUser?.userType === 'comercializadora') {
-    comercializadorasPath = `/subdistribuidores/${currentUser.id}/agencias`
-    comercializadorasLabel = 'Mis Agencias'
+    comercializadorasPath = `/comercializadores/${currentUser.id}/subdistribuidores`
+    comercializadorasLabel = 'Mis Subdistribuidores'
   }
 
-  // Para agencias, el link va directo a sus taquillas
-  if (currentUser?.userType === 'agencia') {
-    comercializadorasPath = `/subdistribuidores/${currentUser.parentId}/agencias/${currentUser.id}/taquillas`
-    comercializadorasLabel = 'Mis Taquillas'
-  }
-
-  return [
+  // Construir los items base
+  const baseItems = [
     { path: '/dashboard', label: 'Dashboard', icon: Vault, permission: 'dashboard' },
     { path: '/reports', label: 'Reportes', icon: ChartLine, permission: 'reports' },
     { path: '/lotteries', label: 'Sorteos', icon: Calendar, permission: 'lotteries' },
     { path: '/draws', label: 'Resultados', icon: Target, permission: 'draws.read' },
     { path: '/winners', label: 'Ganadores', icon: Trophy, permission: 'winners' },
-    { path: '/comercializadores', label: 'Comercializadores', icon: Users, permission: 'users' },
+    { path: '/users', label: 'Usuarios', icon: Users, permission: 'users' },
     { path: '/roles', label: 'Roles', icon: ShieldCheck, permission: 'roles' },
     { path: '/api-keys', label: 'API Keys', icon: Key, permission: 'api-keys' },
     { path: comercializadorasPath, label: comercializadorasLabel, icon: Buildings, permission: 'comercializadoras' },
     { path: '/settings', label: 'Configuración', icon: Gear, permission: 'settings' },
   ]
+
+  // Agregar items específicos para subdistribuidores
+  if (currentUser?.userType === 'subdistribuidor') {
+    baseItems.push({ 
+      path: '/subdistribuidor/agencias', 
+      label: 'Mis Agencias', 
+      icon: Buildings, 
+      permission: 'always' // Permiso especial que siempre se muestra
+    })
+  }
+
+  // Agregar items específicos para agencias
+  if (currentUser?.userType === 'agencia') {
+    baseItems.push({ 
+      path: '/agencia/taquillas', 
+      label: 'Mis Taquillas', 
+      icon: Buildings, 
+      permission: 'always' // Permiso especial que siempre se muestra
+    })
+  }
+
+  return baseItems
 }
 
 export function MainLayout() {
@@ -132,7 +149,7 @@ export function MainLayout() {
   }
 
   const navItems = getNavItems(currentUser)
-  const visibleNavItems = navItems.filter(item => canViewModule(item.permission))
+  const visibleNavItems = navItems.filter(item => item.permission === 'always' || canViewModule(item.permission))
 
   return (
     <div className="min-h-screen bg-background">

@@ -219,6 +219,18 @@ export function TaquillaEditDialog({ open, taquilla, onOpenChange, onSave, agenc
             </p>
           </div>
 
+          {/* Alerta sobre límites de porcentaje */}
+          {selectedAgency && (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                Los porcentajes no pueden superar los límites de la agencia: 
+                <strong> {maxShareOnSales}% en ventas</strong> y 
+                <strong> {maxShareOnProfits}% en participación</strong>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Porcentajes */}
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">

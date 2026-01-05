@@ -84,7 +84,7 @@ export interface Withdrawal {
 }
 
 // Tipos de usuario en el sistema
-export type UserType = 'admin' | 'comercializadora' | 'agencia' | 'taquilla'
+export type UserType = 'admin' | 'comercializadora' | 'subdistribuidor' | 'agencia' | 'taquilla'
 
 export interface Taquilla {
   id: string
@@ -113,12 +113,27 @@ export interface Agency {
   address: string
   logo?: string
   userId?: string // Usuario vinculado (userType: 'agencia')
-  parentId: string // ID de la comercializadora (relación jerárquica)
+  parentId: string // ID del subdistribuidor (relación jerárquica)
   shareOnSales: number
   shareOnProfits: number
   currentBalance: number
   isActive: boolean
   createdAt: string
+}
+
+export interface Subdistribuidor {
+  id: string
+  name: string
+  email: string
+  address?: string
+  logo?: string
+  userId?: string // Usuario vinculado (userType: 'subdistribuidor')
+  parentId: string // ID de la comercializadora (relación jerárquica)
+  shareOnSales: number
+  shareOnProfits: number
+  isActive: boolean
+  createdAt: string
+  createdBy?: string
 }
 
 export interface Comercializadora {
@@ -128,6 +143,7 @@ export interface Comercializadora {
   address?: string
   logo?: string
   userId?: string // Usuario vinculado (userType: 'comercializadora')
+  parentId?: string // ID del admin (relación jerárquica)
   shareOnSales: number
   shareOnProfits: number
   isActive: boolean

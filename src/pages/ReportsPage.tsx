@@ -46,6 +46,7 @@ export function ReportsPage() {
     visibleTaquillaIds,
     currentUser,
     comercializadoras,
+    subdistribuidores,
     agencies,
     visibleAgencies
   } = useApp()
@@ -54,6 +55,7 @@ export function ReportsPage() {
   // Determinar tipo de usuario
   const isAdmin = currentUser?.userType === 'admin' || !currentUser?.userType
   const isComercializadora = currentUser?.userType === 'comercializadora'
+  const isSubdistribuidor = currentUser?.userType === 'subdistribuidor'
   const isAgencia = currentUser?.userType === 'agencia'
 
   // Estado de fechas aplicadas (solo se actualiza con el botón o filtros rápidos)
@@ -69,6 +71,7 @@ export function ReportsPage() {
   const { stats: comercializadoraStats, refresh: refreshComercializadoraStats } = useComercializadoraStats({
     comercializadoras: comercializadoras || [],
     agencies: visibleAgencies || agencies || [],
+    subdistribuidores: subdistribuidores || [],
     taquillas: visibleTaquillas || [],
     dateFrom: appliedDateRange.from,
     dateTo: appliedDateRange.to
@@ -172,12 +175,20 @@ export function ReportsPage() {
           totalBalance += stat.monthBalance
         }
       })
-    } else if (isComercializadora && agencyStats && agencyStats.length > 0) {
-      // Comercializadora: sumar ventas y premios de todas sus agencias
-      // La comisión se calcula con el % de la comercializadora sobre el total de ventas
-      // Buscar la comercializadora actual por userId
-      const currentComercializadora = comercializadoras?.find(c => c.userId === currentUser?.id)
-      const comercializadoraShareOnSales = currentComercializadora?.shareOnSales || 0
+    } else if ((isComercializadora || isSubdistribuidor) && agencyStats && agencyStats.length > 0) {
+      // Comercializadora o Subdistribuidor: sumar ventas y premios de todas sus agencias
+      // La comisión se calcula con el % del usuario sobre el total de ventas
+      let shareOnSales = 0
+      
+      if (isComercializadora) {
+        // Buscar la comercializadora actual por userId
+        const currentComercializadora = comercializadoras?.find(c => c.userId === currentUser?.id)
+        shareOnSales = currentComercializadora?.shareOnSales || 0
+      } else if (isSubdistribuidor) {
+        // Buscar el subdistribuidor actual por id
+        const currentSubdistribuidor = subdistribuidores?.find(s => s.id === currentUser?.id)
+        shareOnSales = currentSubdistribuidor?.shareOnSales || 0
+      }
 
       agencyStats.forEach(stat => {
         if (periodFilter === 'today') {
@@ -200,8 +211,8 @@ export function ReportsPage() {
         }
       })
 
-      // Calcular comisión de la comercializadora basada en su porcentaje sobre el total de ventas
-      totalCommissions = totalSales * (comercializadoraShareOnSales / 100)
+      // Calcular comisión basada en el porcentaje sobre el total de ventas
+      totalCommissions = totalSales * (shareOnSales / 100)
     } else if (isAgencia && taquillaStats && taquillaStats.length > 0) {
       // Agencia: sumar ventas y premios de todas sus taquillas
       // La comisión se calcula con el % de la agencia sobre el total de ventas
@@ -235,7 +246,7 @@ export function ReportsPage() {
     }
 
     return { totalSales, totalPrizes, totalCommissions, totalBalance }
-  }, [isAdmin, isComercializadora, isAgencia, comercializadoraStats, agencyStats, taquillaStats, periodFilter, currentUser, comercializadoras, agencies])
+  }, [isAdmin, isComercializadora, isSubdistribuidor, isAgencia, comercializadoraStats, agencyStats, taquillaStats, periodFilter, currentUser, comercializadoras, subdistribuidores, agencies])
 
   // Estadísticas principales - usando datos filtrados por taquillas visibles
   const stats = useMemo(() => {

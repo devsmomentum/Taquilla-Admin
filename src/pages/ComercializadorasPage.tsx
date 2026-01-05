@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 export function ComercializadorasPage() {
   const {
     comercializadoras,
+    subdistribuidores,
     comercializadorasLoading,
     createComercializadora,
     updateComercializadora,
@@ -23,14 +24,14 @@ export function ComercializadorasPage() {
 
   const navigate = useNavigate()
 
-  // Si el usuario es una comercializadora, redirigir directamente a sus agencias
+  // Si el usuario es una comercializadora, redirigir directamente a sus subdistribuidores
   useEffect(() => {
     if (currentUser?.userType === 'comercializadora') {
-      navigate(`/comercializadoras/${currentUser.id}/agencias`, { replace: true })
+      navigate(`/comercializadores/${currentUser.id}/subdistribuidores`, { replace: true })
     }
     // Si el usuario es una agencia, redirigir directamente a sus taquillas
     if (currentUser?.userType === 'agencia') {
-      navigate(`/comercializadoras/${currentUser.parentId}/agencias/${currentUser.id}/taquillas`, { replace: true })
+      navigate(`/agencias/${currentUser.id}/taquillas`, { replace: true })
     }
   }, [currentUser, navigate])
 
@@ -47,6 +48,7 @@ export function ComercializadorasPage() {
     <ComercializadorasTab
       comercializadoras={comercializadoras}
       agencies={agencies}
+      subdistribuidores={subdistribuidores}
       isLoading={comercializadorasLoading}
       onCreate={createComercializadora}
       onUpdate={updateComercializadora}

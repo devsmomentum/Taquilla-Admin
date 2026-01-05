@@ -14,10 +14,11 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 export function ComercializadoraAgenciasPage() {
-  const { id } = useParams<{ id: string }>()
+  const { id, comercializadoraId, subdistribuidorId } = useParams<{ id?: string; comercializadoraId?: string; subdistribuidorId?: string }>()
   const navigate = useNavigate()
   const {
     comercializadoras,
+    subdistribuidores,
     agencies,
     agenciesLoading,
     updateUser,
@@ -27,6 +28,13 @@ export function ComercializadoraAgenciasPage() {
     createUser,
     taquillas
   } = useApp()
+  
+  // Si es un subdistribuidor viendo sus propias agencias
+  const isSubdistribuidorSelf = currentUser?.userType === 'subdistribuidor' && !subdistribuidorId && !id && !comercializadoraId
+  
+  // Determine which ID to use based on the route
+  const parentId = isSubdistribuidorSelf ? currentUser.id : (subdistribuidorId || id)
+  const isSubdistribuidorView = !!subdistribuidorId || isSubdistribuidorSelf
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
@@ -36,9 +44,17 @@ export function ComercializadoraAgenciasPage() {
   const [agencyToDelete, setAgencyToDelete] = useState<Agency | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const comercializadora = comercializadoras.find(c => c.id === id)
+  const comercializadora = isSubdistribuidorSelf 
+    ? comercializadoras.find(c => c.id === currentUser.parentId)
+    : comercializadoras.find(c => c.id === (comercializadoraId || id))
+  
+  const subdistribuidor = isSubdistribuidorView 
+    ? (isSubdistribuidorSelf 
+        ? subdistribuidores.find(s => s.id === currentUser.id)
+        : subdistribuidores.find(s => s.id === subdistribuidorId)) 
+    : null
   const filteredAgencies = agencies
-    .filter(a => a.parentId === id)
+    .filter(a => a.parentId === parentId)
     .filter(a => {
       const matchesSearch = search === '' ||
         a.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -52,9 +68,9 @@ export function ComercializadoraAgenciasPage() {
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }))
 
-  const allAgenciesOfComercializadora = agencies.filter(a => a.parentId === id)
-  const activeCount = allAgenciesOfComercializadora.filter(a => a.isActive).length
-  const inactiveCount = allAgenciesOfComercializadora.filter(a => !a.isActive).length
+  const allAgenciesOfParent = agencies.filter(a => a.parentId === parentId)
+  const activeCount = allAgenciesOfParent.filter(a => a.isActive).length
+  const inactiveCount = allAgenciesOfParent.filter(a => !a.isActive).length
 
   const getTaquillasCount = (agencyId: string) => {
     return taquillas?.filter(t => t.parentId === agencyId).length || 0
@@ -75,7 +91,7 @@ export function ComercializadoraAgenciasPage() {
       const success = await updateUser(editingAgency.id, {
         name: agencyData.name,
         address: agencyData.address,
-        parentId: agencyData.parentId || id,
+        parentId: agencyData.parentId || parentId,
         shareOnSales: agencyData.shareOnSales,
         shareOnProfits: agencyData.shareOnProfits,
         isActive: agencyData.isActive,
@@ -113,7 +129,7 @@ export function ComercializadoraAgenciasPage() {
       address: agencyData.address || '',
       shareOnSales: agencyData.shareOnSales || 0,
       shareOnProfits: agencyData.shareOnProfits || 0,
-      parentId: id
+      parentId: parentId
     })
 
     if (success) {
@@ -149,22 +165,22 @@ export function ComercializadoraAgenciasPage() {
     }
   }
 
-  if (!comercializadora) {
+  if ((!isSubdistribuidorView && !comercializadora) || (isSubdistribuidorView && !subdistribuidor)) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2 text-sm">
           <button
-            onClick={() => navigate('/comercializadoras')}
+            onClick={() => navigate('/comercializadores')}
             className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
           >
-            Comercializadoras
+            Comercializadores
           </button>
           <span className="text-muted-foreground">/</span>
-          <span className="font-medium text-foreground">No encontrada</span>
+          <span className="font-medium text-foreground">No encontrado</span>
         </div>
         <div className="flex flex-col items-center justify-center py-12">
-          <p className="text-lg font-medium">Comercializadora no encontrada</p>
-          <p className="text-muted-foreground">La comercializadora solicitada no existe</p>
+          <p className="text-lg font-medium">{isSubdistribuidorView ? 'Subdistribuidor no encontrado' : 'Comercializadora no encontrada'}</p>
+          <p className="text-muted-foreground">{isSubdistribuidorView ? 'El subdistribuidor solicitado no existe' : 'La comercializadora solicitada no existe'}</p>
         </div>
       </div>
     )
@@ -173,26 +189,39 @@ export function ComercializadoraAgenciasPage() {
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
-        <button
-          onClick={() => navigate('/comercializadoras')}
-          className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-        >
-          Comercializadoras
-        </button>
-        <span className="text-muted-foreground">/</span>
-        <span className="font-medium text-foreground">{comercializadora.name}</span>
-      </div>
+      {!isSubdistribuidorSelf && (
+        <div className="flex items-center gap-2 text-sm">
+          <button
+            onClick={() => navigate('/comercializadores')}
+            className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+          >
+            Comercializadores
+          </button>
+          {isSubdistribuidorView && comercializadora && (
+            <>
+              <span className="text-muted-foreground">/</span>
+              <button
+                onClick={() => navigate(`/comercializadores/${comercializadoraId}/subdistribuidores`)}
+                className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+              >
+                {comercializadora.name}
+              </button>
+            </>
+          )}
+          <span className="text-muted-foreground">/</span>
+          <span className="font-medium text-foreground">{isSubdistribuidorView ? subdistribuidor?.name : comercializadora.name}</span>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Agencias</h2>
           <p className="text-muted-foreground">
-            Gestiona las agencias de {comercializadora.name}
+            Gestiona las agencias de {isSubdistribuidorView ? subdistribuidor?.name : comercializadora.name}
           </p>
         </div>
-        {canViewModule("comercializadoras") && (
+        {(canViewModule("comercializadoras") || currentUser?.userType === 'subdistribuidor') && (
           <Button onClick={handleCreate} className="gap-2 cursor-pointer">
             <Plus weight="bold" />
             Nueva Agencia
@@ -218,7 +247,7 @@ export function ComercializadoraAgenciasPage() {
             onClick={() => setStatusFilter('all')}
             className="cursor-pointer"
           >
-            Todas ({allAgenciesOfComercializadora.length})
+            Todas ({allAgenciesOfParent.length})
           </Button>
           <Button
             variant={statusFilter === 'active' ? 'default' : 'outline'}
@@ -257,7 +286,7 @@ export function ComercializadoraAgenciasPage() {
             <p className="text-muted-foreground text-sm mb-4">
               {search ? 'Intenta con otros criterios de búsqueda' : 'Crea tu primera agencia para comenzar'}
             </p>
-            {!search && canViewModule("comercializadoras") && (
+            {!search && (canViewModule("comercializadoras") || currentUser?.userType === 'subdistribuidor') && (
               <Button onClick={handleCreate} variant="outline" className="gap-2 cursor-pointer">
                 <Plus weight="bold" />
                 Crear Primera Agencia
@@ -309,7 +338,13 @@ export function ComercializadoraAgenciasPage() {
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
                     <button
                       className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
-                      onClick={() => navigate(`/comercializadoras/${id}/agencias/${agency.id}/taquillas`)}
+                      onClick={() => {
+                        if (isSubdistribuidorView) {
+                          navigate(`/comercializadores/${comercializadoraId}/subdistribuidores/${subdistribuidorId}/agencias/${agency.id}/taquillas`)
+                        } else {
+                          navigate(`/comercializadores/${id}/agencias/${agency.id}/taquillas`)
+                        }
+                      }}
                       title="Ver taquillas"
                     >
                       <Storefront className="h-4 w-4" />
@@ -384,7 +419,7 @@ export function ComercializadoraAgenciasPage() {
         onSave={handleSave}
         comercializadoras={comercializadoras}
         agency={editingAgency}
-        defaultParentId={id}
+        defaultParentId={parentId}
       />
 
       {/* Diálogo de confirmación para eliminar */}

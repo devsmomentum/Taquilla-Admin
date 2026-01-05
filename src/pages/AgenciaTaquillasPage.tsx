@@ -16,10 +16,11 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 export function AgenciaTaquillasPage() {
-  const { id: comercializadoraId, agencyId } = useParams<{ id: string; agencyId: string }>()
+  const { id: comercializadoraId, agencyId } = useParams<{ id?: string; agencyId?: string }>()
   const navigate = useNavigate()
   const {
     comercializadoras,
+    subdistribuidores,
     agencies,
     taquillas,
     taquillasLoading,
@@ -29,6 +30,9 @@ export function AgenciaTaquillasPage() {
     canViewModule,
     currentUser
   } = useApp()
+  
+  // Si es una agencia viendo sus propias taquillas
+  const isAgenciaSelf = currentUser?.userType === 'agencia' && !agencyId && !comercializadoraId
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
@@ -42,10 +46,19 @@ export function AgenciaTaquillasPage() {
   const [statsTaquilla, setStatsTaquilla] = useState<Taquilla | null>(null)
 
   const comercializadora = comercializadoras.find(c => c.id === comercializadoraId)
-  const agency = agencies.find(a => a.id === agencyId)
+  const agency = isAgenciaSelf 
+    ? agencies.find(a => a.id === currentUser.id)
+    : agencies.find(a => a.id === agencyId)
+  
+  const effectiveAgencyId = isAgenciaSelf ? currentUser.id : agencyId
+  
+  // Obtener el subdistribuidor padre para agencias
+  const parentSubdistribuidor = isAgenciaSelf && agency
+    ? subdistribuidores.find(s => s.id === agency.parentId)
+    : null
 
   const filteredTaquillas = (taquillas || [])
-    .filter(t => t.parentId === agencyId)
+    .filter(t => t.parentId === effectiveAgencyId)
     .filter(t => {
       const matchesSearch = search === '' ||
         t.fullName.toLowerCase().includes(search.toLowerCase()) ||
@@ -76,7 +89,7 @@ export function AgenciaTaquillasPage() {
   const handleCreateSave = async (taquillaData: any) => {
     const success = await createTaquilla({
       ...taquillaData,
-      parentId: agencyId,
+      parentId: effectiveAgencyId,
       isApproved: true,
       createdAt: new Date().toISOString()
     })
@@ -94,7 +107,7 @@ export function AgenciaTaquillasPage() {
   const handleEditSave = async (id: string, updates: any) => {
     const success = await updateTaquilla(id, {
       ...updates,
-      parentId: agencyId
+      parentId: effectiveAgencyId
     })
     if (success) {
       toast.success("Taquilla actualizada exitosamente")
@@ -136,7 +149,20 @@ export function AgenciaTaquillasPage() {
     }
   }
 
-  if (!comercializadora || !agency) {
+  // Si es agencia viendo sus propias taquillas y no se encuentra, mostrar error específico
+  if (isAgenciaSelf && !agency) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col items-center justify-center py-12">
+          <p className="text-lg font-medium">Error de configuración</p>
+          <p className="text-muted-foreground">No se pudo cargar la información de la agencia</p>
+        </div>
+      </div>
+    )
+  }
+  
+  // Para otras vistas, verificar comercializadora y agencia
+  if (!isAgenciaSelf && (!comercializadora || !agency)) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2 text-sm">
@@ -175,7 +201,7 @@ export function AgenciaTaquillasPage() {
   return (
     <div className="space-y-6">
       {/* Breadcrumb - Solo visible para admins y comercializadoras */}
-      {currentUser?.userType !== 'agencia' && (
+      {!isAgenciaSelf && (
         <div className="flex items-center gap-2 text-sm">
           <button
             onClick={() => navigate('/comercializadoras')}
@@ -196,7 +222,7 @@ export function AgenciaTaquillasPage() {
       )}
 
       {/* Info de Subdistribuidor padre - Solo visible para agencias */}
-      {currentUser?.userType === 'agencia' && comercializadora && (
+      {isAgenciaSelf && agency && (
         <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -208,7 +234,7 @@ export function AgenciaTaquillasPage() {
                   <p className="text-xs text-muted-foreground">Subdistribuidor</p>
                   <Info className="h-3 w-3 text-muted-foreground" />
                 </div>
-                <p className="font-semibold text-foreground">{comercializadora.name}</p>
+                <p className="font-semibold text-foreground">{parentSubdistribuidor?.name || 'Subdistribuidor no encontrado'}</p>
               </div>
               <Badge variant="outline" className="bg-white/50 dark:bg-black/20">
                 Tu organización
@@ -231,7 +257,7 @@ export function AgenciaTaquillasPage() {
             }
           </p>
         </div>
-        {canViewModule("comercializadoras") && (
+        {(canViewModule("comercializadoras") || currentUser?.userType === 'agencia') && (
           <Button onClick={handleCreate} className="gap-2 cursor-pointer">
             <Plus weight="bold" />
             Nueva Taquilla
@@ -296,7 +322,7 @@ export function AgenciaTaquillasPage() {
             <p className="text-muted-foreground text-sm mb-4">
               {search ? 'Intenta con otros criterios de búsqueda' : 'Crea tu primera taquilla para comenzar'}
             </p>
-            {!search && canViewModule("comercializadoras") && (
+            {!search && (canViewModule("comercializadoras") || currentUser?.userType === 'agencia') && (
               <Button onClick={handleCreate} variant="outline" className="gap-2 cursor-pointer">
                 <Plus weight="bold" />
                 Crear Primera Taquilla
@@ -427,8 +453,8 @@ export function AgenciaTaquillasPage() {
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         onSave={handleCreateSave}
-        agencies={agencies.filter(a => a.parentId === comercializadoraId)}
-        defaultAgencyId={agencyId}
+        agencies={isAgenciaSelf ? [agency].filter(Boolean) : agencies.filter(a => a.parentId === comercializadoraId)}
+        defaultAgencyId={effectiveAgencyId}
       />
 
       {/* Diálogo para editar taquilla */}
@@ -437,7 +463,7 @@ export function AgenciaTaquillasPage() {
         onOpenChange={setEditDialogOpen}
         onSave={handleEditSave}
         taquilla={editingTaquilla}
-        agencies={agencies.filter(a => a.parentId === comercializadoraId)}
+        agencies={isAgenciaSelf ? [agency].filter(Boolean) : agencies.filter(a => a.parentId === comercializadoraId)}
       />
 
       {/* Diálogo de confirmación para eliminar */}
