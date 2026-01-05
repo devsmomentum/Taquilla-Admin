@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -299,8 +299,10 @@ export function DashboardPage() {
     }
 
     if (isSubdistribuidor) {
-      // Buscar el subdistribuidor actual - usar el id del usuario
-      const currentSubdistribuidor = subdistribuidores?.find(s => s.id === currentUser.id)
+      // Buscar el subdistribuidor actual
+      const currentSubdistribuidor = subdistribuidores?.find(s => 
+        s.id === currentUser.id || s.userId === currentUser.id
+      )
       return currentSubdistribuidor?.shareOnSales || 0
     }
 
@@ -324,13 +326,28 @@ export function DashboardPage() {
     }
 
     if (isSubdistribuidor) {
-      // Buscar el subdistribuidor actual - usar el id del usuario
-      const currentSubdistribuidor = subdistribuidores?.find(s => s.id === currentUser.id)
+      // Para subdistribuidores, el userId y el id deberían ser el mismo
+      // ya que el subdistribuidor ES el usuario
+      const currentSubdistribuidor = subdistribuidores?.find(s => 
+        s.id === currentUser.id || s.userId === currentUser.id
+      )
+      
+      
       return currentSubdistribuidor?.shareOnProfits || 0
     }
 
+    if (isAgencia) {
+      // Buscar la agencia actual
+      const currentAgency = agencies?.find(a => 
+        a.id === currentUser.id || a.userId === currentUser.id
+      )
+      
+      
+      return currentAgency?.shareOnProfits || 0
+    }
+
     return 0
-  }, [currentUser, isComercializadora, isSubdistribuidor, comercializadoras, subdistribuidores])
+  }, [currentUser, isComercializadora, isSubdistribuidor, isAgencia, comercializadoras, subdistribuidores, agencies])
 
   // Estadísticas de resultados - usando datos según el perfil del usuario
   const periodStats = useMemo(() => {
@@ -437,6 +454,17 @@ export function DashboardPage() {
 
   // Taquillas activas (filtradas por visibilidad del usuario)
   const activeTaquillas = visibleTaquillas.filter(t => t.isApproved)
+
+  // Debug para participación en utilidades
+  useEffect(() => {
+    console.log('Debug Participación:', {
+      userType: currentUser?.userType,
+      isAgencia,
+      currentUserProfitPercent,
+      periodStats,
+      showDesglose: (isComercializadora || isSubdistribuidor || isAgencia) && currentUserProfitPercent > 0
+    })
+  }, [currentUser, isAgencia, currentUserProfitPercent, periodStats, isComercializadora, isSubdistribuidor])
 
   const handleRefreshAll = () => {
     loadDailyResults()
@@ -691,7 +719,7 @@ export function DashboardPage() {
                     </p>
                     <p className="text-xs text-muted-foreground">Utilidad</p>
                   </div>
-                  {(isComercializadora || isSubdistribuidor) && currentUserProfitPercent > 0 && periodStats.totalRaised > 0 && (
+                  {(isComercializadora || isSubdistribuidor || isAgencia) && (
                     <>
                       <div className="pt-1 border-t">
                         <p className={`text-sm font-semibold text-gray-600`}>
@@ -904,6 +932,7 @@ export function DashboardPage() {
             dateTo={appliedDateRange.to}
             allUsers={allUsers}
             isLoading={hierarchyLoading}
+            currentUserType={currentUser?.userType}
           />
         </CardContent>
       </Card>

@@ -350,6 +350,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     email: user.email,
     address: user.address || '',
     logo: undefined,
+    userId: user.id,  // Agregar userId para consistencia
     parentId: user.parentId || '',
     shareOnSales: user.shareOnSales || 0,
     shareOnProfits: user.shareOnProfits || 0,

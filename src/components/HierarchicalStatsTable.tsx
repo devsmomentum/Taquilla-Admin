@@ -40,6 +40,7 @@ interface HierarchicalStatsTableProps {
   dateTo: Date
   allUsers: any[] // Todos los usuarios del sistema
   isLoading?: boolean
+  currentUserType?: string // Tipo del usuario actual
 }
 
 // Componente de fila expandible
@@ -49,9 +50,10 @@ interface ExpandableRowProps {
   dateFrom: Date
   dateTo: Date
   allUsers: any[]
+  showProfitColumn: boolean
 }
 
-function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers }: ExpandableRowProps) {
+function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers, showProfitColumn }: ExpandableRowProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [children, setChildren] = useState<EntityStats[]>([])
   const [isLoadingChildren, setIsLoadingChildren] = useState(false)
@@ -398,14 +400,37 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers }: Expandable
             {formatCurrency(entity.balance)}
           </span>
         </TableCell>
-        {entity.type === 'comercializadora' && (
-          <TableCell className="text-right">
-            <div className="flex flex-col items-end">
-              <span className="font-bold text-purple-600">{formatCurrency(entity.profit || 0)}</span>
-              <span className="text-xs text-muted-foreground">({entity.profitPercent || 0}%)</span>
-            </div>
-          </TableCell>
-        )}
+        {(entity.type === 'comercializadora' || entity.type === 'subdistribuidor' || entity.type === 'agencia') ? (
+          entity.balance > 0 ? (
+            <>
+              <TableCell className="text-right">
+                <div className="flex flex-col items-end">
+                  <span className="font-medium text-purple-600">{formatCurrency((entity.profit || 0))}</span>
+                  <span className="text-xs text-muted-foreground">({entity.profitPercent || 0}%)</span>
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                <span className="font-bold text-gray-900">
+                  {formatCurrency(entity.balance - (entity.profit || 0))}
+                </span>
+              </TableCell>
+            </>
+          ) : (
+            <>
+              <TableCell className="text-right">
+                <span className="text-muted-foreground">-</span>
+              </TableCell>
+              <TableCell className="text-right">
+                <span className="text-muted-foreground">-</span>
+              </TableCell>
+            </>
+          )
+        ) : showProfitColumn ? (
+          <>
+            <TableCell />
+            <TableCell />
+          </>
+        ) : null}
       </TableRow>
 
       {/* Filas hijas */}
@@ -417,6 +442,7 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers }: Expandable
           dateFrom={dateFrom}
           dateTo={dateTo}
           allUsers={allUsers}
+          showProfitColumn={showProfitColumn}
         />
       ))}
     </>
@@ -429,7 +455,8 @@ export function HierarchicalStatsTable({
   dateFrom,
   dateTo,
   allUsers,
-  isLoading
+  isLoading,
+  currentUserType
 }: HierarchicalStatsTableProps) {
   // Calcular totales
   const totals = rootEntities.reduce((acc, entity) => ({
@@ -440,8 +467,10 @@ export function HierarchicalStatsTable({
     profit: acc.profit + (entity.profit || 0)
   }), { sales: 0, prizes: 0, commission: 0, balance: 0, profit: 0 })
 
-  // Determinar si mostrar columna de ganancia (solo para comercializadoras)
-  const showProfitColumn = rootType === 'admin' || rootType === 'comercializadora'
+  // Determinar si mostrar columnas de participación y total
+  // Si el usuario es agencia y está viendo taquillas, también mostrar las columnas
+  const showProfitColumn = rootType === 'admin' || rootType === 'comercializadora' || rootType === 'subdistribuidor' || 
+                          rootType === 'agencia' || (rootType === 'taquilla' && currentUserType === 'agencia')
 
   if (isLoading) {
     return (
@@ -470,9 +499,14 @@ export function HierarchicalStatsTable({
             <TableHead className="min-w-[250px]">Entidad</TableHead>
             <TableHead className="text-right">Ventas</TableHead>
             <TableHead className="text-right">Premios</TableHead>
-            <TableHead className="text-right">Comisión (%)</TableHead>
-            <TableHead className="text-right">Balance</TableHead>
-            {showProfitColumn && <TableHead className="text-right">Ganancia (%)</TableHead>}
+            <TableHead className="text-right">Comisión</TableHead>
+            <TableHead className="text-right">Utilidad</TableHead>
+            {showProfitColumn && (
+              <>
+                <TableHead className="text-right">Participación</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+              </>
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -484,6 +518,7 @@ export function HierarchicalStatsTable({
               dateFrom={dateFrom}
               dateTo={dateTo}
               allUsers={allUsers}
+              showProfitColumn={showProfitColumn}
             />
           ))}
 
@@ -505,9 +540,14 @@ export function HierarchicalStatsTable({
               {formatCurrency(totals.balance)}
             </TableCell>
             {showProfitColumn && (
-              <TableCell className="text-right text-purple-600 font-bold">
-                {formatCurrency(totals.profit)}
-              </TableCell>
+              <>
+                <TableCell className="text-right text-purple-600 font-bold">
+                  {formatCurrency(totals.profit)}
+                </TableCell>
+                <TableCell className="text-right font-bold">
+                  {formatCurrency(totals.balance - totals.profit)}
+                </TableCell>
+              </>
             )}
           </TableRow>
         </TableBody>

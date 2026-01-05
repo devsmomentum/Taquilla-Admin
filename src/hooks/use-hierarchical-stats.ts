@@ -328,10 +328,11 @@ export function useHierarchicalStats(options: UseHierarchicalStatsOptions) {
         const commission = sales * (commissionPercent / 100)
         const balance = sales - prizes - commission
 
-        // Calcular ganancia solo para comercializadoras y subdistribuidores
+        // Calcular ganancia para comercializadoras, subdistribuidores y agencias
         let profit = 0
         let profitPercent = 0
-        if (rootType === 'comercializadora' || entity.userType === 'comercializadora' || entity.userType === 'subdistribuidor') {
+        if (rootType === 'comercializadora' || rootType === 'subdistribuidor' || rootType === 'agencia' || 
+            entity.userType === 'comercializadora' || entity.userType === 'subdistribuidor' || entity.userType === 'agencia') {
           profitPercent = entity.shareOnProfits || 0
           profit = balance > 0 ? balance * (profitPercent / 100) : 0
         }
@@ -368,8 +369,10 @@ export function useHierarchicalStats(options: UseHierarchicalStatsOptions) {
           commission,
           commissionPercent,
           balance,
-          profit: (rootType === 'comercializadora' || rootType === 'subdistribuidor' || entity.userType === 'subdistribuidor') ? profit : undefined,
-          profitPercent: (rootType === 'comercializadora' || rootType === 'subdistribuidor' || entity.userType === 'subdistribuidor') ? profitPercent : undefined,
+          profit: (rootType === 'comercializadora' || rootType === 'subdistribuidor' || rootType === 'agencia' || 
+                   entity.userType === 'comercializadora' || entity.userType === 'subdistribuidor' || entity.userType === 'agencia') ? profit : undefined,
+          profitPercent: (rootType === 'comercializadora' || rootType === 'subdistribuidor' || rootType === 'agencia' || 
+                         entity.userType === 'comercializadora' || entity.userType === 'subdistribuidor' || entity.userType === 'agencia') ? profitPercent : undefined,
           parentId: entity.parentId,
           hasChildren
         }

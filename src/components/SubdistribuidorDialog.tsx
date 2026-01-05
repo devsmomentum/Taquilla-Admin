@@ -17,6 +17,7 @@ interface SubdistribuidorDialogProps {
     subdistribuidor?: Subdistribuidor & { parentId?: string }
     currentUserId?: string
     createUser?: (userData: Omit<User, 'id' | 'createdAt'>) => Promise<boolean>
+    comercializadoraId?: string
 }
 
 export function SubdistribuidorDialog({
@@ -25,7 +26,8 @@ export function SubdistribuidorDialog({
     onSave,
     subdistribuidor,
     currentUserId,
-    createUser
+    createUser,
+    comercializadoraId
 }: SubdistribuidorDialogProps) {
     const { comercializadoras, currentUser } = useApp()
     const [name, setName] = useState("")
@@ -39,10 +41,20 @@ export function SubdistribuidorDialog({
     
     // Obtener la comercializadora padre y sus límites de porcentaje
     const parentComercializadora = useMemo(() => {
-        if (!currentUserId && !subdistribuidor?.parentId) return null
-        const parentId = subdistribuidor?.parentId || currentUserId
-        return comercializadoras.find(c => c.id === parentId) || null
-    }, [currentUserId, subdistribuidor?.parentId, comercializadoras])
+        // Si se proporciona comercializadoraId, usarlo (para admin creando subdistribuidor)
+        if (comercializadoraId) {
+            return comercializadoras.find(c => c.id === comercializadoraId) || null
+        }
+        // Si estamos editando, usar el parentId del subdistribuidor
+        if (subdistribuidor?.parentId) {
+            return comercializadoras.find(c => c.id === subdistribuidor.parentId) || null
+        }
+        // Si no, usar el currentUserId (comercializadora creando subdistribuidor)
+        if (currentUserId) {
+            return comercializadoras.find(c => c.id === currentUserId) || null
+        }
+        return null
+    }, [comercializadoraId, currentUserId, subdistribuidor?.parentId, comercializadoras])
 
     const maxShareOnSales = parentComercializadora?.shareOnSales ?? 100
     const maxShareOnProfits = parentComercializadora?.shareOnProfits ?? 100
@@ -127,7 +139,7 @@ export function SubdistribuidorDialog({
                         roleIds: [],
                         isActive: isActive,
                         createdBy: currentUserId || 'system',
-                        parentId: currentUserId, // La comercializadora que lo crea
+                        parentId: comercializadoraId || currentUserId, // La comercializadora padre
                         address: address.trim() || undefined,
                         shareOnSales: shareOnSales,
                         shareOnProfits: shareOnProfits
@@ -161,7 +173,7 @@ export function SubdistribuidorDialog({
                 shareOnProfits,
                 isActive,
                 createdBy: currentUserId,
-                parentId: subdistribuidor?.parentId || '',
+                parentId: subdistribuidor?.parentId || comercializadoraId || currentUserId || '',
                 // Solo incluir password si se proporcionó un valor
                 ...(password.trim() ? { password: password.trim() } : {}),
             })

@@ -142,6 +142,25 @@ export function ReportsPage() {
   }, [winners, selectedLottery, dateRange])
 
   // Calcular totales desde los hooks de comercializadora/agencia/taquilla según el tipo de usuario
+  // Obtener el porcentaje de participación en utilidades del usuario logueado
+  const currentUserProfitPercent = useMemo(() => {
+    if (!currentUser) return 0
+
+    if (isComercializadora) {
+      // Buscar la comercializadora actual
+      const currentComercializadora = comercializadoras?.find(c => c.userId === currentUser.id)
+      return currentComercializadora?.shareOnProfits || 0
+    }
+
+    if (isSubdistribuidor) {
+      // Buscar el subdistribuidor actual - usar el id del usuario
+      const currentSubdistribuidor = subdistribuidores?.find(s => s.id === currentUser.id)
+      return currentSubdistribuidor?.shareOnProfits || 0
+    }
+
+    return 0
+  }, [currentUser, isComercializadora, isSubdistribuidor, comercializadoras, subdistribuidores])
+
   const periodTotals = useMemo(() => {
     let totalSales = 0
     let totalPrizes = 0
@@ -185,8 +204,10 @@ export function ReportsPage() {
         const currentComercializadora = comercializadoras?.find(c => c.userId === currentUser?.id)
         shareOnSales = currentComercializadora?.shareOnSales || 0
       } else if (isSubdistribuidor) {
-        // Buscar el subdistribuidor actual por id
-        const currentSubdistribuidor = subdistribuidores?.find(s => s.id === currentUser?.id)
+        // Buscar el subdistribuidor actual
+        const currentSubdistribuidor = subdistribuidores?.find(s => 
+          s.id === currentUser?.id || s.userId === currentUser?.id
+        )
         shareOnSales = currentSubdistribuidor?.shareOnSales || 0
       }
 
@@ -609,23 +630,31 @@ export function ReportsPage() {
               <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
                 <TrendUp className="h-5 w-5 text-white" weight="bold" />
               </div>
-              <div>
-                <p className={`text-2xl font-bold ${stats.totalRaised >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {formatCurrency(Math.abs(stats.totalRaised))}
-                </p>
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  {stats.totalRaised >= 0 ? (
+              <div className="flex-1">
+                <div className="space-y-1">
+                  <div>
+                    <p className={`text-lg font-bold ${stats.totalRaised >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {stats.totalRaised < 0 ? '-' : ''}{formatCurrency(Math.abs(stats.totalRaised))}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Utilidad</p>
+                  </div>
+                  {(isComercializadora || isSubdistribuidor || isAgencia) && (
                     <>
-                      <CaretUp className="h-3 w-3 text-emerald-600" weight="bold" />
-                      Ganancia Neta
-                    </>
-                  ) : (
-                    <>
-                      <CaretDown className="h-3 w-3 text-red-600" weight="bold" />
-                      Pérdida Neta
+                      <div className="pt-1 border-t">
+                        <p className={`text-sm font-semibold text-gray-600`}>
+                          {formatCurrency(stats.totalRaised * (currentUserProfitPercent / 100))}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Mi Participación ({currentUserProfitPercent}%)</p>
+                      </div>
+                      <div className="pt-1">
+                        <p className={`text-lg font-bold text-gray-900`}>
+                          {formatCurrency(stats.totalRaised * (1 - currentUserProfitPercent / 100))}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Restante</p>
+                      </div>
                     </>
                   )}
-                </p>
+                </div>
               </div>
             </div>
           </CardContent>
