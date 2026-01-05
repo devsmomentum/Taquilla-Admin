@@ -288,6 +288,7 @@ export function SubdistribuidoresTab({
                 onSave={handleSave}
                 currentUserId={currentUserId}
                 createUser={createUser}
+                comercializadoraId={comercializadoraId}
             />
 
             <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
