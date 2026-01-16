@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +41,45 @@ const PLACEHOLDER_ANIMAL_IMAGE =
     </svg>`
   );
 
+const normalizeLolaNumero = (numero: string) => {
+  const cleaned = (numero || "").trim();
+  const digitsOnly = cleaned.replace(/\D+/g, "");
+  if (!digitsOnly) return "";
+  const parsed = Number.parseInt(digitsOnly, 10);
+  if (Number.isNaN(parsed)) return "";
+  const normalized = ((parsed % 100) + 100) % 100;
+  return String(normalized).padStart(2, "0");
+};
+
+const parseAmountNumber = (raw: string) => {
+  const s = String(raw ?? "").trim();
+  if (!s) return 0;
+
+  // Remove currency symbols/spaces; keep digits and separators
+  const cleaned = s.replace(/[^0-9.,-]/g, "");
+
+  // Heuristic: if has both '.' and ',', treat '.' as thousands and ',' as decimals
+  let normalized = cleaned;
+  if (cleaned.includes(".") && cleaned.includes(",")) {
+    normalized = cleaned.replace(/\./g, "").replace(/,/g, ".");
+  } else if (cleaned.includes(",")) {
+    normalized = cleaned.replace(/,/g, ".");
+  }
+
+  const n = Number.parseFloat(normalized);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const formatAmount = (n: number) =>
+  new Intl.NumberFormat("es-ES", { maximumFractionDigits: 2 }).format(n);
+
+const getLolaAnimalImageSrc = (numero: string) => {
+  const number = Number.parseInt(numero, 10);
+  // const normalized = normalizeLolaNumero(numero);
+  // if (!normalized) return PLACEHOLDER_ANIMAL_IMAGE;
+  return `/assets/lola/${number}.png`;
+};
+
 export function LotteriesPage() {
   const {
     lotteries,
@@ -68,14 +107,26 @@ export function LotteriesPage() {
   const parseMatrizItem = (raw: string) => {
     const cleaned = (raw || "").trim().replace(/^\(/, "").replace(/\)$/, "");
     const parts = cleaned.split(",").map((p) => p.trim());
+    const numero = normalizeLolaNumero(parts[0] ?? "");
     return {
-      numero: parts[0] ?? "",
+      numero,
       monto: parts[1] ?? "",
       comprados: parts[2] ?? "",
       valor4: parts[3] ?? "",
       valor5: parts[4] ?? "",
     };
   };
+
+  const lolaMontoByNumero = useMemo(() => {
+    const map = new Map<string, number>();
+    const matriz = selectedLolaLottery?.matriz ?? [];
+    for (const raw of matriz) {
+      const row = parseMatrizItem(raw);
+      if (!row.numero) continue;
+      map.set(row.numero, parseAmountNumber(row.monto));
+    }
+    return map;
+  }, [selectedLolaLottery?.id, selectedLolaLottery?.matriz]);
 
   const openLolaMatrix = (lottery: Lottery) => {
     setSelectedLolaLottery(lottery);
@@ -166,8 +217,12 @@ export function LotteriesPage() {
       {/* Tabs: Mikaela / Lola */}
       <Tabs value={lotteryTab} onValueChange={(v) => setLotteryTab(v as any)}>
         <TabsList>
-          <TabsTrigger value="mikaela" className="cursor-pointer">Mikaela</TabsTrigger>
-          <TabsTrigger value="lola" className="cursor-pointer">Lola</TabsTrigger>
+          <TabsTrigger value="mikaela" className="cursor-pointer">
+            Mikaela
+          </TabsTrigger>
+          <TabsTrigger value="lola" className="cursor-pointer">
+            Lola
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="mikaela" className="mt-0" />
@@ -468,29 +523,59 @@ export function LotteriesPage() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="max-h-[70vh] overflow-auto rounded-md border p-3">
+          <div className="max-h-[70vh] overflow-auto rounded-md border p-2">
             {selectedLolaLottery?.matriz &&
             selectedLolaLottery.matriz.length > 0 ? (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
                 {selectedLolaLottery.matriz.map((raw, idx) => {
                   const row = parseMatrizItem(raw);
+                  const currentNumero = row.numero;
+                  const currentMonto = parseAmountNumber(row.monto);
+
+                  const n = currentNumero
+                    ? Number.parseInt(currentNumero, 10)
+                    : NaN;
+                  const prevNumero = Number.isFinite(n)
+                    ? String((n + 99) % 100).padStart(2, "0")
+                    : "";
+                  const nextNumero = Number.isFinite(n)
+                    ? String((n + 1) % 100).padStart(2, "0")
+                    : "";
+
+                  const prevMonto = prevNumero
+                    ? lolaMontoByNumero.get(prevNumero) ?? 0
+                    : 0;
+                  const nextMonto = nextNumero
+                    ? lolaMontoByNumero.get(nextNumero) ?? 0
+                    : 0;
+
+                  const multiplicador70 = currentMonto * 70;
+                  const multiplicador5 = prevMonto * 5 + nextMonto * 5;
+                  const total = multiplicador70 + multiplicador5;
+
                   return (
                     <Card key={`${selectedLolaLottery.id}-${idx}`}>
-                      <CardContent className="p-3">
-                        <div className="flex items-start gap-3">
-                          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
+                      <CardContent className="p-2">
+                        <div className="flex items-start gap-2">
+                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-muted">
                             <img
-                              src={PLACEHOLDER_ANIMAL_IMAGE}
+                              src={getLolaAnimalImageSrc(row.numero)}
                               alt={`Animalito ${row.numero}`}
                               className="h-full w-full object-cover"
                               loading="lazy"
+                              onError={(e) => {
+                                const img = e.currentTarget;
+                                if (img.dataset.fallbackApplied === "1") return;
+                                img.dataset.fallbackApplied = "1";
+                                img.src = PLACEHOLDER_ANIMAL_IMAGE;
+                              }}
                             />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="font-semibold leading-tight">
+                            <div className="text-sm font-semibold leading-tight">
                               N° {row.numero}
                             </div>
-                            <div className="mt-1 space-y-0.5 text-sm text-muted-foreground">
+                            <div className="mt-0.5 space-y-0.5 text-xs text-muted-foreground">
                               <div>
                                 Monto:{" "}
                                 <span className="font-medium text-foreground">
@@ -504,15 +589,21 @@ export function LotteriesPage() {
                                 </span>
                               </div>
                               <div>
-                                Valor 4:{" "}
+                                Multiplicador x70:{" "}
                                 <span className="font-medium text-foreground">
-                                  {row.valor4}
+                                  {formatAmount(multiplicador70)}
                                 </span>
                               </div>
                               <div>
-                                Valor 5:{" "}
+                                Multiplicador x5:{" "}
                                 <span className="font-medium text-foreground">
-                                  {row.valor5}
+                                  {formatAmount(multiplicador5)}
+                                </span>
+                              </div>
+                              <div>
+                                Total:{" "}
+                                <span className="font-medium text-foreground">
+                                  {formatAmount(total)}
                                 </span>
                               </div>
                             </div>
