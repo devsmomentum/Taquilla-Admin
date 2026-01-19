@@ -356,6 +356,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     shareOnProfits: user.shareOnProfits || 0,
     currentBalance: 0,
     isActive: user.isActive,
+    lotteries: (user as any).lotteries ?? null,
     createdAt: user.createdAt
   }))
 

@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Switch } from '@/components/ui/switch'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Info } from '@phosphor-icons/react'
 import { useApp } from '@/contexts/AppContext'
-import type { Agency, Comercializadora } from '@/lib/types'
+import type { Agency, Comercializadora, AgencyLotteries } from '@/lib/types'
 
 interface Props {
     open: boolean
@@ -29,6 +30,11 @@ export function AgencyDialog({ open, onOpenChange, onSave, comercializadoras, ag
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [isActive, setIsActive] = useState(true)
+    const [lotteries, setLotteries] = useState<AgencyLotteries>({
+        lola: false,
+        mikaela: false,
+        pollo_lleno: false,
+    })
     const [saving, setSaving] = useState(false)
     const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -61,6 +67,11 @@ export function AgencyDialog({ open, onOpenChange, onSave, comercializadoras, ag
                 setShareOnSales((agency.shareOnSales || 0).toString())
                 setShareOnProfits((agency.shareOnProfits || 0).toString())
                 setIsActive(agency.isActive ?? true)
+                setLotteries({
+                    lola: (agency as any)?.lotteries?.lola ?? false,
+                    mikaela: (agency as any)?.lotteries?.mikaela ?? false,
+                    pollo_lleno: (agency as any)?.lotteries?.pollo_lleno ?? false,
+                })
                 setEmail('')
                 setPassword('')
             } else {
@@ -72,6 +83,11 @@ export function AgencyDialog({ open, onOpenChange, onSave, comercializadoras, ag
                 setIsActive(true)
                 setEmail('')
                 setPassword('')
+                setLotteries({
+                    lola: false,
+                    mikaela: false,
+                    pollo_lleno: false,
+                })
             }
             setErrors({})
         }
@@ -139,6 +155,7 @@ export function AgencyDialog({ open, onOpenChange, onSave, comercializadoras, ag
                 userEmail: email,
                 userPassword: password
             }),
+            lotteries,
             // Al editar: incluir password solo si se proporcionó
             ...(agency && password.trim() && {
                 password: password.trim()
@@ -321,6 +338,57 @@ export function AgencyDialog({ open, onOpenChange, onSave, comercializadoras, ag
                             />
                         </div>
                     )}
+
+                    {/* Loterías */}
+                    <div className="space-y-3 pt-2">
+                        <div>
+                            <Label>Loterías</Label>
+                            <p className="text-xs text-muted-foreground">
+                                Selecciona a cuáles loterías tendrá acceso esta agencia
+                            </p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                                <Checkbox
+                                    id="lottery-lola"
+                                    checked={lotteries.lola}
+                                    onCheckedChange={(checked) =>
+                                        setLotteries((prev) => ({ ...prev, lola: checked === true }))
+                                    }
+                                />
+                                <Label htmlFor="lottery-lola" className="font-normal">
+                                    Lola
+                                </Label>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <Checkbox
+                                    id="lottery-mikaela"
+                                    checked={lotteries.mikaela}
+                                    onCheckedChange={(checked) =>
+                                        setLotteries((prev) => ({ ...prev, mikaela: checked === true }))
+                                    }
+                                />
+                                <Label htmlFor="lottery-mikaela" className="font-normal">
+                                    Mikaela
+                                </Label>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <Checkbox
+                                    id="lottery-pollo-lleno"
+                                    checked={lotteries.pollo_lleno}
+                                    onCheckedChange={(checked) =>
+                                        setLotteries((prev) => ({ ...prev, pollo_lleno: checked === true }))
+                                    }
+                                />
+                                <Label htmlFor="lottery-pollo-lleno" className="font-normal">
+                                    Pollo Lleno
+                                </Label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <DialogFooter>

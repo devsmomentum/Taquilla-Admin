@@ -40,7 +40,8 @@ async function fetchUsers(): Promise<User[]> {
       share_on_sales,
       share_on_profits,
       parent_id,
-      sales_limit
+      sales_limit,
+      lotteries
     `)
     .order('created_at', { ascending: true })
 
@@ -66,6 +67,7 @@ async function fetchUsers(): Promise<User[]> {
         shareOnSales: parseFloat(user.share_on_sales) || 0,
         shareOnProfits: parseFloat(user.share_on_profits) || 0,
         salesLimit: parseFloat(user.sales_limit) || 0,
+        lotteries: user.lotteries ?? null,
         roleIds: roleIds,
         isActive: user.is_active,
         createdAt: user.created_at,
@@ -124,7 +126,8 @@ export function useCreateUserMutation() {
             shareOnSales: userData.shareOnSales || 0,
             shareOnProfits: userData.shareOnProfits || 0,
             salesLimit: userData.salesLimit || 0,
-            parentId: userData.parentId || null
+            parentId: userData.parentId || null,
+            lotteries: userData.lotteries ?? null
           })
         }
       )
@@ -133,6 +136,19 @@ export function useCreateUserMutation() {
 
       if (!response.ok) {
         throw new Error(result.error || 'Error al crear usuario')
+      }
+
+      // Asegurar persistencia de loterías (por si la Edge Function no maneja el campo)
+      if (userData.lotteries !== undefined && result?.userId) {
+        const { error: lotteriesError } = await supabase
+          .from('users')
+          .update({ lotteries: userData.lotteries })
+          .eq('id', result.userId)
+
+        if (lotteriesError) {
+          // No fallar la creación completa por esto, pero reportar
+          console.error('Error guardando lotteries en users:', lotteriesError)
+        }
       }
 
       return result
@@ -228,6 +244,7 @@ export function useUpdateUserMutation() {
       if (userData.shareOnSales !== undefined) updateData.share_on_sales = userData.shareOnSales
       if (userData.shareOnProfits !== undefined) updateData.share_on_profits = userData.shareOnProfits
       if (userData.salesLimit !== undefined) updateData.sales_limit = userData.salesLimit
+      if (userData.lotteries !== undefined) updateData.lotteries = userData.lotteries
 
       const { error } = await supabase
         .from('users')

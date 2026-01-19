@@ -90,6 +90,12 @@ export interface Withdrawal {
 // Tipos de usuario en el sistema
 export type UserType = 'admin' | 'comercializadora' | 'subdistribuidor' | 'agencia' | 'taquilla'
 
+export type AgencyLotteries = {
+  lola: boolean
+  mikaela: boolean
+  pollo_lleno: boolean
+}
+
 export interface Taquilla {
   id: string
   fullName: string
@@ -122,6 +128,7 @@ export interface Agency {
   shareOnProfits: number
   currentBalance: number
   isActive: boolean
+  lotteries?: AgencyLotteries | null
   createdAt: string
 }
 
@@ -207,6 +214,7 @@ export interface User {
   salesLimit?: number // Límite de venta (solo para taquillas)
   // Relación jerárquica: agencia→comercializadora, taquilla→agencia
   parentId?: string // ID del padre jerárquico
+  lotteries?: AgencyLotteries | null // Acceso a loterías (principalmente para agencias)
 }
 
 export interface ApiKey {
