@@ -251,10 +251,10 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers, showProfitCo
         const commission = sales * (commissionPercent / 100)
         const balance = sales - prizes - commission
 
-        // Calcular ganancia solo para comercializadoras
+        // Calcular ganancia/participación para comercializadoras, subdistribuidores y agencias
         let profit = 0
         let profitPercent = 0
-        if (childType === 'comercializadora') {
+        if (child.userType === 'comercializadora' || child.userType === 'subdistribuidor' || child.userType === 'agencia') {
           profitPercent = child.shareOnProfits || 0
           profit = balance > 0 ? balance * (profitPercent / 100) : 0
         }
@@ -281,8 +281,8 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers, showProfitCo
           commission,
           commissionPercent,
           balance,
-          profit: child.userType === 'comercializadora' ? profit : undefined,
-          profitPercent: child.userType === 'comercializadora' ? profitPercent : undefined,
+          profit: (child.userType === 'comercializadora' || child.userType === 'subdistribuidor' || child.userType === 'agencia') ? profit : undefined,
+          profitPercent: (child.userType === 'comercializadora' || child.userType === 'subdistribuidor' || child.userType === 'agencia') ? profitPercent : undefined,
           parentId: child.parentId,
           hasChildren
         }
@@ -418,7 +418,10 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers, showProfitCo
           ) : (
             <>
               <TableCell className="text-right">
-                <span className="text-muted-foreground">-</span>
+                <div className="flex flex-col items-end">
+                  <span className="font-medium text-purple-600">{formatCurrency((entity.profit || 0))}</span>
+                  <span className="text-xs text-muted-foreground">({entity.profitPercent || 0}%)</span>
+                </div>
               </TableCell>
               <TableCell className="text-right">
                 <span className="text-muted-foreground">-</span>
