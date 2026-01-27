@@ -3,8 +3,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useApp } from '@/contexts/AppContext'
+import { useLotteryTypePreference } from '@/contexts/LotteryTypeContext'
 import { useSalesStats } from '@/hooks/use-sales-stats'
 import { useComercializadoraStats } from '@/hooks/use-comercializadora-stats'
 import { useAgencyStats } from '@/hooks/use-agency-stats'
@@ -50,6 +50,8 @@ export function DashboardPage() {
     visibleAgencies,
     users: allUsers
   } = useApp()
+
+  const { lotteryType } = useLotteryTypePreference()
 
   // Fechas de referencia
   const now = new Date()
@@ -352,11 +354,23 @@ export function DashboardPage() {
 
   // Estadísticas de resultados - usando datos según el perfil del usuario
   const periodStats = useMemo(() => {
+    if (lotteryType === 'lola') {
+      return {
+        totalSales: 0,
+        totalPayout: 0,
+        totalCommissions: 0,
+        totalRaised: 0,
+        resultsCount: 0,
+        resultsWithWinners: 0
+      }
+    }
+
     const fromDate = startOfDay(appliedDateRange.from)
     const toDate = endOfDay(appliedDateRange.to)
     const filteredResults = dailyResults.filter(r => {
       const resultDate = parseISO(r.resultDate)
-      return isWithinInterval(resultDate, { start: fromDate, end: toDate })
+      if (!isWithinInterval(resultDate, { start: fromDate, end: toDate })) return false
+      return !r.lotteryId.startsWith('lola-')
     })
     const resultsCount = filteredResults.length
     const resultsWithWinners = filteredResults.filter(r => (r.totalToPay || 0) > 0).length
@@ -441,25 +455,28 @@ export function DashboardPage() {
       resultsCount,
       resultsWithWinners
     }
-  }, [dailyResults, appliedDateRange, filteredWinners, salesStats, comercializadoraStats, comercializadoraTotals, agencyStats, agencyTotals, taquillaStats, taquillaTotals, isAdmin, isComercializadora, isSubdistribuidor, isAgencia, periodType, currentUserCommissionPercent])
+  }, [dailyResults, appliedDateRange, filteredWinners, salesStats, comercializadoraStats, comercializadoraTotals, agencyStats, agencyTotals, taquillaStats, taquillaTotals, isAdmin, isComercializadora, isSubdistribuidor, isAgencia, periodType, currentUserCommissionPercent, lotteryType])
 
   // Últimos resultados (para todos los usuarios)
   const latestResults = useMemo(() => {
-    return [...dailyResults]
+    const filtered = dailyResults.filter((r) =>
+      lotteryType === 'lola' ? r.lotteryId.startsWith('lola-') : !r.lotteryId.startsWith('lola-')
+    )
+
+    return [...filtered]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 5)
-  }, [dailyResults])
+  }, [dailyResults, lotteryType])
 
   // Loterías activas
   const activeLotteries = lotteries.filter(l => l.isActive)
 
-  const [activeLotteriesTab, setActiveLotteriesTab] = useState<'mikaela' | 'lola'>('mikaela')
   const isLolaLottery = useCallback((lotteryId: string) => lotteryId.startsWith('lola-'), [])
-  const activeLotteriesForTab = useMemo(() => {
+  const activeLotteriesForType = useMemo(() => {
     return activeLotteries.filter(l =>
-      activeLotteriesTab === 'lola' ? isLolaLottery(l.id) : !isLolaLottery(l.id)
+      lotteryType === 'lola' ? isLolaLottery(l.id) : !isLolaLottery(l.id)
     )
-  }, [activeLotteries, activeLotteriesTab, isLolaLottery])
+  }, [activeLotteries, lotteryType, isLolaLottery])
 
   // Taquillas activas (filtradas por visibilidad del usuario)
   const activeTaquillas = visibleTaquillas.filter(t => t.isApproved)
@@ -953,20 +970,13 @@ export function DashboardPage() {
             <div className="flex items-center gap-2 mb-4">
               <Target className="h-5 w-5 text-primary" />
               <h3 className="font-semibold">Loterías Activas</h3>
+              <Badge variant="outline" className="ml-auto text-[10px]">
+                {lotteryType === 'lola' ? 'Lola' : 'Mikaela'}
+              </Badge>
             </div>
 
-            <Tabs value={activeLotteriesTab} onValueChange={(v) => setActiveLotteriesTab(v as any)}>
-              <TabsList>
-                <TabsTrigger value="mikaela" className="cursor-pointer">Mikaela</TabsTrigger>
-                <TabsTrigger value="lola" className="cursor-pointer">Lola</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="mikaela" className="mt-4" />
-              <TabsContent value="lola" className="mt-4" />
-            </Tabs>
-
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {activeLotteriesForTab.map((lottery) => (
+              {activeLotteriesForType.map((lottery) => (
                 <div key={lottery.id} className="flex items-center gap-2 p-2 rounded-lg border bg-card">
                   <CheckCircle className="h-4 w-4 text-emerald-500" weight="fill" />
                   <span className="text-sm font-medium truncate">{lottery.name}</span>

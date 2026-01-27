@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ErrorFallback } from './ErrorFallback.tsx'
 import LoginRoute from './LoginRoute.tsx'
 import { AppProvider } from './contexts/AppContext'
+import { LotteryTypeProvider } from './contexts/LotteryTypeContext'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import { MainLayout } from './components/layout/MainLayout'
 
@@ -76,114 +77,116 @@ if (!rootEl) {
         <ErrorBoundary FallbackComponent={ErrorFallback}>
           <BrowserRouter>
             <AppProvider>
-            <Routes>
-              {/* Public route */}
-              <Route path="/login" element={<LoginRoute />} />
+              <LotteryTypeProvider>
+                <Routes>
+                  {/* Public route */}
+                  <Route path="/login" element={<LoginRoute />} />
 
-              {/* Protected routes with layout */}
-              <Route
-                element={
-                  <ProtectedRoute>
-                    <MainLayout />
-                  </ProtectedRoute>
-                }
-              >
-                <Route path="/dashboard" element={
-                  <ProtectedRoute requiredPermission="dashboard">
-                    <DashboardPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/reports" element={
-                  <ProtectedRoute requiredPermission="reports">
-                    <ReportsPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/lotteries" element={
-                  <ProtectedRoute requiredPermission="lotteries">
-                    <LotteriesPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/draws" element={
-                  <ProtectedRoute requiredPermission="draws.read">
-                    <DrawsPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/winners" element={
-                  <ProtectedRoute requiredPermission="winners">
-                    <WinnersPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/users" element={
-                  <ProtectedRoute requiredPermission="users">
-                    <UsersPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/roles" element={
-                  <ProtectedRoute requiredPermission="roles">
-                    <RolesPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/api-keys" element={
-                  <ProtectedRoute requiredPermission="api-keys">
-                    <ApiKeysPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/comercializadores" element={
-                  <ProtectedRoute requiredPermission="comercializadoras">
-                    <ComercializadorasPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/comercializadores/:id/agencias" element={
-                  <ProtectedRoute requiredPermission="comercializadoras">
-                    <ComercializadoraAgenciasPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/comercializadores/:id/subdistribuidores" element={
-                  <ProtectedRoute requiredPermission="comercializadoras">
-                    <ComercializadoraSubdistribuidoresPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/comercializadores/:comercializadoraId/subdistribuidores/:subdistribuidorId/agencias" element={
-                  <ProtectedRoute>
-                    <ComercializadoraAgenciasPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/subdistribuidor/agencias" element={
-                  <ProtectedRoute>
-                    <ComercializadoraAgenciasPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/comercializadores/:comercializadoraId/subdistribuidores/:subdistribuidorId/agencias/:agencyId/taquillas" element={
-                  <ProtectedRoute requiredPermission="comercializadoras">
-                    <AgenciaTaquillasPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/comercializadores/:id/agencias/:agencyId/taquillas" element={
-                  <ProtectedRoute requiredPermission="comercializadoras">
-                    <AgenciaTaquillasPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/agencias/:id/taquillas" element={
-                  <ProtectedRoute requiredPermission="comercializadoras">
-                    <AgenciaTaquillasPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/agencia/taquillas" element={
-                  <ProtectedRoute>
-                    <AgenciaTaquillasPage />
-                  </ProtectedRoute>
-                } />
-                <Route path="/settings" element={
-                  <ProtectedRoute requiredPermission="settings">
-                    <SettingsPage />
-                  </ProtectedRoute>
-                } />
-              </Route>
+                  {/* Protected routes with layout */}
+                  <Route
+                    element={
+                      <ProtectedRoute>
+                        <MainLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route path="/dashboard" element={
+                      <ProtectedRoute requiredPermission="dashboard">
+                        <DashboardPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/reports" element={
+                      <ProtectedRoute requiredPermission="reports">
+                        <ReportsPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/lotteries" element={
+                      <ProtectedRoute requiredPermission="lotteries">
+                        <LotteriesPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/draws" element={
+                      <ProtectedRoute requiredPermission="draws.read">
+                        <DrawsPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/winners" element={
+                      <ProtectedRoute requiredPermission="winners">
+                        <WinnersPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/users" element={
+                      <ProtectedRoute requiredPermission="users">
+                        <UsersPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/roles" element={
+                      <ProtectedRoute requiredPermission="roles">
+                        <RolesPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/api-keys" element={
+                      <ProtectedRoute requiredPermission="api-keys">
+                        <ApiKeysPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/comercializadores" element={
+                      <ProtectedRoute requiredPermission="comercializadoras">
+                        <ComercializadorasPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/comercializadores/:id/agencias" element={
+                      <ProtectedRoute requiredPermission="comercializadoras">
+                        <ComercializadoraAgenciasPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/comercializadores/:id/subdistribuidores" element={
+                      <ProtectedRoute requiredPermission="comercializadoras">
+                        <ComercializadoraSubdistribuidoresPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/comercializadores/:comercializadoraId/subdistribuidores/:subdistribuidorId/agencias" element={
+                      <ProtectedRoute>
+                        <ComercializadoraAgenciasPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/subdistribuidor/agencias" element={
+                      <ProtectedRoute>
+                        <ComercializadoraAgenciasPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/comercializadores/:comercializadoraId/subdistribuidores/:subdistribuidorId/agencias/:agencyId/taquillas" element={
+                      <ProtectedRoute requiredPermission="comercializadoras">
+                        <AgenciaTaquillasPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/comercializadores/:id/agencias/:agencyId/taquillas" element={
+                      <ProtectedRoute requiredPermission="comercializadoras">
+                        <AgenciaTaquillasPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/agencias/:id/taquillas" element={
+                      <ProtectedRoute requiredPermission="comercializadoras">
+                        <AgenciaTaquillasPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/agencia/taquillas" element={
+                      <ProtectedRoute>
+                        <AgenciaTaquillasPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/settings" element={
+                      <ProtectedRoute requiredPermission="settings">
+                        <SettingsPage />
+                      </ProtectedRoute>
+                    } />
+                  </Route>
 
-              {/* Default redirect */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Routes>
+                  {/* Default redirect */}
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </LotteryTypeProvider>
             </AppProvider>
           </BrowserRouter>
         </ErrorBoundary>

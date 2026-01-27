@@ -5,10 +5,18 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Toaster } from '@/components/ui/sonner'
 import { useApp } from '@/contexts/AppContext'
+import { useLotteryTypePreference } from '@/contexts/LotteryTypeContext'
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import {
   Vault,
   ChartLine,
@@ -74,6 +82,7 @@ const getNavItems = (currentUser: any) => {
 
 export function MainLayout() {
   const { currentUser, logout, canViewModule, updateUser } = useApp()
+  const { lotteryType, setLotteryType } = useLotteryTypePreference()
   const queryClient = useQueryClient()
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
   const [profileDialogOpen, setProfileDialogOpen] = useState(false)
@@ -167,18 +176,33 @@ export function MainLayout() {
                 Gestión de Loterías
               </h1>
             </div>
-            <button
-              onClick={openProfileDialog}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-              title="Mi perfil"
-            >
-              <span className="text-sm font-medium text-slate-200 hidden sm:block max-w-[140px] truncate">
-                {currentUser?.name}
-              </span>
-              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center border border-slate-500">
-                <UserCircle className="h-5 w-5 text-slate-200" weight="fill" />
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="hidden sm:inline text-xs text-slate-300">Lotería</span>
+                <Select value={lotteryType} onValueChange={(v) => setLotteryType(v as any)}>
+                  <SelectTrigger className="h-9 w-[130px] sm:w-[160px] bg-white/10 border-white/20 text-white">
+                    <SelectValue placeholder="Selecciona" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mikaela">Mikaela</SelectItem>
+                    <SelectItem value="lola">Lola</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </button>
+
+              <button
+                onClick={openProfileDialog}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                title="Mi perfil"
+              >
+                <span className="text-sm font-medium text-slate-200 hidden sm:block max-w-[140px] truncate">
+                  {currentUser?.name}
+                </span>
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center border border-slate-500">
+                  <UserCircle className="h-5 w-5 text-slate-200" weight="fill" />
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       </header>

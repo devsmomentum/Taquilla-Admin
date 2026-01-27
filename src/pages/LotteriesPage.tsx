@@ -11,9 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LotteryDialog } from "@/components/LotteryDialog";
 import { useApp } from "@/contexts/AppContext";
+import { useLotteryTypePreference } from "@/contexts/LotteryTypeContext";
 import { filterLotteries } from "@/lib/filter-utils";
 import { Lottery } from "@/lib/types";
 import { toast } from "sonner";
@@ -89,6 +89,8 @@ export function LotteriesPage() {
     deleteLottery,
   } = useApp();
 
+  const { lotteryType } = useLotteryTypePreference();
+
   const [lotteryDialogOpen, setLotteryDialogOpen] = useState(false);
   const [editingLottery, setEditingLottery] = useState<Lottery | undefined>();
   const [deleteLotteryDialogOpen, setDeleteLotteryDialogOpen] = useState(false);
@@ -98,8 +100,6 @@ export function LotteriesPage() {
     "all" | "active" | "inactive"
   >("all");
   const [isDeleting, setIsDeleting] = useState(false);
-  const [lotteryTab, setLotteryTab] = useState<"mikaela" | "lola">("mikaela");
-
   const [lolaMatrixDialogOpen, setLolaMatrixDialogOpen] = useState(false);
   const [selectedLolaLottery, setSelectedLolaLottery] =
     useState<Lottery | null>(null);
@@ -135,19 +135,19 @@ export function LotteriesPage() {
 
   const isLolaLottery = (lottery: Lottery) => lottery.id.startsWith("lola-");
 
-  const tabLotteries = lotteries.filter((l) =>
-    lotteryTab === "lola" ? isLolaLottery(l) : !isLolaLottery(l),
+  const visibleLotteries = lotteries.filter((l) =>
+    lotteryType === "lola" ? isLolaLottery(l) : !isLolaLottery(l),
   );
 
   // Filtrar y ordenar alfabéticamente por nombre
-  const filteredLotteries = filterLotteries(tabLotteries, search, {
+  const filteredLotteries = filterLotteries(visibleLotteries, search, {
     isActive: statusFilter === "all" ? undefined : statusFilter === "active",
   }).sort((a, b) =>
     a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
   );
 
-  const activeCount = tabLotteries.filter((l) => l.isActive).length;
-  const inactiveCount = tabLotteries.filter((l) => !l.isActive).length;
+  const activeCount = visibleLotteries.filter((l) => l.isActive).length;
+  const inactiveCount = visibleLotteries.filter((l) => !l.isActive).length;
 
   const handleSaveLottery = async (lottery: Lottery) => {
     const exists = lotteries.find((l) => l.id === lottery.id);
@@ -214,21 +214,6 @@ export function LotteriesPage() {
         </Button>
       </div>
 
-      {/* Tabs: Mikaela / Lola */}
-      <Tabs value={lotteryTab} onValueChange={(v) => setLotteryTab(v as any)}>
-        <TabsList>
-          <TabsTrigger value="mikaela" className="cursor-pointer">
-            Mikaela
-          </TabsTrigger>
-          <TabsTrigger value="lola" className="cursor-pointer">
-            Lola
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="mikaela" className="mt-0" />
-        <TabsContent value="lola" className="mt-0" />
-      </Tabs>
-
       {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
@@ -246,7 +231,7 @@ export function LotteriesPage() {
             size="sm"
             onClick={() => setStatusFilter("all")}
           >
-            Todos ({tabLotteries.length})
+            Todos ({visibleLotteries.length})
           </Button>
           <Button
             variant={statusFilter === "active" ? "default" : "outline"}
@@ -526,7 +511,7 @@ export function LotteriesPage() {
           <div className="max-h-[70vh] overflow-auto rounded-md border p-2">
             {selectedLolaLottery?.matriz &&
             selectedLolaLottery.matriz.length > 0 ? (
-              <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+              <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
                 {selectedLolaLottery.matriz.map((raw, idx) => {
                   const row = parseMatrizItem(raw);
                   const currentNumero = row.numero;
@@ -535,12 +520,17 @@ export function LotteriesPage() {
                   const n = currentNumero
                     ? Number.parseInt(currentNumero, 10)
                     : NaN;
-                  const prevNumero = Number.isFinite(n)
-                    ? String((n + 99) % 100).padStart(2, "0")
-                    : "";
-                  const nextNumero = Number.isFinite(n)
-                    ? String((n + 1) % 100).padStart(2, "0")
-                    : "";
+                  // Adyacentes sin wrap-around:
+                  // - 00 no tiene anterior
+                  // - 99 no tiene siguiente
+                  const prevNumero =
+                    Number.isFinite(n) && n > 0
+                      ? String(n - 1).padStart(2, "0")
+                      : "";
+                  const nextNumero =
+                    Number.isFinite(n) && n < 99
+                      ? String(n + 1).padStart(2, "0")
+                      : "";
 
                   const prevMonto = prevNumero
                     ? (lolaMontoByNumero.get(prevNumero) ?? 0)
@@ -550,63 +540,67 @@ export function LotteriesPage() {
                     : 0;
 
                   const multiplicador70 = currentMonto * 70;
+                  const multiplicador5Base = currentMonto * 5;
                   const multiplicador5 = prevMonto * 5 + nextMonto * 5;
                   const total = multiplicador70 + multiplicador5;
 
                   return (
                     <Card key={`${selectedLolaLottery.id}-${idx}`}>
-                      <CardContent className="p-2">
-                        <div className="flex items-start gap-2">
-                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-muted">
-                            <img
-                              src={getLolaAnimalImageSrc(row.numero)}
-                              alt={`Animalito ${row.numero}`}
-                              className="h-full w-full object-cover"
-                              loading="lazy"
-                              onError={(e) => {
-                                const img = e.currentTarget;
-                                if (img.dataset.fallbackApplied === "1") return;
-                                img.dataset.fallbackApplied = "1";
-                                img.src = PLACEHOLDER_ANIMAL_IMAGE;
-                              }}
-                            />
+                      <CardContent className="relative p-2">
+                        <div className="absolute right-2 top-2 z-10 h-12 w-12 overflow-hidden rounded-md bg-muted shadow">
+                          <img
+                            src={getLolaAnimalImageSrc(row.numero)}
+                            alt={`Animalito ${row.numero}`}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            onError={(e) => {
+                              const img = e.currentTarget;
+                              if (img.dataset.fallbackApplied === "1") return;
+                              img.dataset.fallbackApplied = "1";
+                              img.src = PLACEHOLDER_ANIMAL_IMAGE;
+                            }}
+                          />
+                        </div>
+
+                        <div className="text-sm font-semibold leading-tight">
+                          N° {row.numero}
+                        </div>
+                        <div className="mt-0.5 space-y-0.5 text-xs text-muted-foreground">
+                          <div>
+                            Monto:{" "}
+                            <span className="font-medium text-foreground">
+                              {row.monto}
+                            </span>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="text-sm font-semibold leading-tight">
-                              N° {row.numero}
-                            </div>
-                            <div className="mt-0.5 space-y-0.5 text-xs text-muted-foreground">
-                              <div>
-                                Monto:{" "}
-                                <span className="font-medium text-foreground">
-                                  {row.monto}
-                                </span>
-                              </div>
-                              <div>
-                                Comprados:{" "}
-                                <span className="font-medium text-foreground">
-                                  {row.comprados}
-                                </span>
-                              </div>
-                              <div>
-                                Multiplicador x70:{" "}
-                                <span className="font-medium text-foreground">
-                                  {formatAmount(multiplicador70)}
-                                </span>
-                              </div>
-                              <div>
-                                Multiplicador x5:{" "}
-                                <span className="font-medium text-foreground">
-                                  {formatAmount(multiplicador5)}
-                                </span>
-                              </div>
-                              <div>
-                                Total:{" "}
-                                <span className="font-medium text-foreground">
-                                  {formatAmount(total)}
-                                </span>
-                              </div>
-                            </div>
+                          <div>
+                            Comprados:{" "}
+                            <span className="font-medium text-foreground">
+                              {row.comprados}
+                            </span>
+                          </div>
+                          <div>
+                            Multiplicador x70:{" "}
+                            <span className="font-medium text-foreground">
+                              {formatAmount(multiplicador70)}
+                            </span>
+                          </div>
+                          <div>
+                            Multiplicador x5 (base):{" "}
+                            <span className="font-medium text-foreground">
+                              {formatAmount(multiplicador5Base)}
+                            </span>
+                          </div>
+                          <div>
+                            Multiplicador x5 (adyacentes):{" "}
+                            <span className="font-medium text-foreground">
+                              {formatAmount(multiplicador5)}
+                            </span>
+                          </div>
+                          <div>
+                            Total:{" "}
+                            <span className="font-medium text-foreground">
+                              {formatAmount(total)}
+                            </span>
                           </div>
                         </div>
                       </CardContent>

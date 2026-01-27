@@ -7,8 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useApp } from '@/contexts/AppContext'
+import { useLotteryTypePreference } from '@/contexts/LotteryTypeContext'
 import { toast } from 'sonner'
 import { format, startOfWeek, endOfWeek, addDays, addWeeks, subWeeks, isToday, isBefore, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -87,6 +87,8 @@ export function DrawsPage() {
     getWinnersForResult
   } = useApp()
 
+  const { lotteryType } = useLotteryTypePreference()
+
   const [currentWeekStart, setCurrentWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 })
   )
@@ -98,7 +100,6 @@ export function DrawsPage() {
   const [selectedResult, setSelectedResult] = useState<DailyResult | null>(null)
   const [winners, setWinners] = useState<WinnerItem[]>([])
   const [loadingWinners, setLoadingWinners] = useState(false)
-  const [drawsTab, setDrawsTab] = useState<'mikaela' | 'lola'>('mikaela')
   const [lolaLoadDialogOpen, setLolaLoadDialogOpen] = useState(false)
   const [selectedLolaLottery, setSelectedLolaLottery] = useState<Lottery | null>(null)
   const [selectedLolaDate, setSelectedLolaDate] = useState<string>('')
@@ -123,8 +124,8 @@ export function DrawsPage() {
   }, [lotteries])
 
   const visibleLotteries = useMemo(() => {
-    return activeLotteries.filter((l) => (drawsTab === 'lola' ? isLolaLottery(l) : !isLolaLottery(l)))
-  }, [activeLotteries, drawsTab, isLolaLottery])
+    return activeLotteries.filter((l) => (lotteryType === 'lola' ? isLolaLottery(l) : !isLolaLottery(l)))
+  }, [activeLotteries, lotteryType, isLolaLottery])
 
   useEffect(() => {
     setSelectedCell(null)
@@ -143,7 +144,7 @@ export function DrawsPage() {
     setLolaTotalFrom('')
     setLolaTotalTo('')
     setLolaConfirmOpen(false)
-  }, [drawsTab])
+  }, [lotteryType])
 
   const parseMatrizItem = (raw: string) => {
     const cleaned = (raw || '').trim().replace(/^\(/, '').replace(/\)$/, '')
@@ -178,14 +179,18 @@ export function DrawsPage() {
       const compradosNumber = parseCompradosNumber(row.comprados)
 
       const n = currentNumero ? Number.parseInt(currentNumero, 10) : NaN
-      const prevNumero = Number.isFinite(n) ? String((n + 99) % 100).padStart(2, '0') : ''
-      const nextNumero = Number.isFinite(n) ? String((n + 1) % 100).padStart(2, '0') : ''
+      // Adyacentes sin wrap-around:
+      // - 00 no tiene anterior
+      // - 99 no tiene siguiente
+      const prevNumero = Number.isFinite(n) && n > 0 ? String(n - 1).padStart(2, '0') : ''
+      const nextNumero = Number.isFinite(n) && n < 99 ? String(n + 1).padStart(2, '0') : ''
 
       const prevMonto = prevNumero ? lolaMontoByNumero.get(prevNumero) ?? 0 : 0
       const nextMonto = nextNumero ? lolaMontoByNumero.get(nextNumero) ?? 0 : 0
 
       // Calculos de multiplicadores
       const multiplicador70 = currentMonto * 70;
+      const multiplicador5Base = currentMonto * 5;
       const multiplicador5 = prevMonto * 5 + nextMonto * 5;
       const total = multiplicador70 + multiplicador5;
 
@@ -195,6 +200,7 @@ export function DrawsPage() {
         row,
         compradosNumber,
         multiplicador70,
+        multiplicador5Base,
         multiplicador5,
         total
       }
@@ -469,21 +475,6 @@ export function DrawsPage() {
         </div>
       </div>
 
-      {/* Tabs: Mikaela / Lola */}
-      <Tabs value={drawsTab} onValueChange={(v) => setDrawsTab(v as any)}>
-        <TabsList>
-          <TabsTrigger value="mikaela" className="cursor-pointer">
-            Mikaela
-          </TabsTrigger>
-          <TabsTrigger value="lola" className="cursor-pointer">
-            Lola
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="mikaela" className="mt-0" />
-        <TabsContent value="lola" className="mt-0" />
-      </Tabs>
-
       {/* Navegación de semanas */}
       <div className="flex items-center justify-between">
         <Button variant="outline" size="sm" onClick={goToPreviousWeek} className="gap-1">
@@ -521,7 +512,7 @@ export function DrawsPage() {
             </div>
             <p className="text-lg font-medium">No hay sorteos activos</p>
             <p className="text-muted-foreground text-sm">
-              {drawsTab === 'lola'
+              {lotteryType === 'lola'
                 ? 'No hay sorteos activos de Lola para esta vista'
                 : 'No hay sorteos activos de Mikaela para esta vista'}
             </p>
@@ -1042,8 +1033,8 @@ export function DrawsPage() {
             {selectedLolaLottery?.matriz &&
             selectedLolaLottery.matriz.length > 0 ? (
               filteredSortedLolaRows.length > 0 ? (
-                <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-                  {filteredSortedLolaRows.map(({ idx, row, multiplicador70, multiplicador5, total }) => {
+                <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
+                  {filteredSortedLolaRows.map(({ idx, row, multiplicador70, multiplicador5Base, multiplicador5, total }) => {
                     const isSelected = !!row.numero && selectedLolaNumero === row.numero
 
                     return (
@@ -1061,58 +1052,61 @@ export function DrawsPage() {
                         <Card
                           className={`${isSelected ? 'ring-2 ring-primary ring-offset-2' : ''} transition-shadow hover:shadow-md`}
                         >
-                          <CardContent className="p-2">
-                            <div className="flex items-start gap-2">
-                              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-muted">
-                                <img
-                                  src={getLolaAnimalImageSrc(row.numero)}
-                                  alt={`Animalito ${row.numero}`}
-                                  className="h-full w-full object-cover"
-                                  loading="lazy"
-                                  onError={(e) => {
-                                    const img = e.currentTarget
-                                    if (img.dataset.fallbackApplied === '1') return
-                                    img.dataset.fallbackApplied = '1'
-                                    img.src = PLACEHOLDER_ANIMAL_IMAGE
-                                  }}
-                                />
+                          <CardContent className="relative p-2">
+                            <div className="pointer-events-none absolute right-2 top-2 z-10 h-12 w-12 overflow-hidden rounded-md bg-muted shadow">
+                              <img
+                                src={getLolaAnimalImageSrc(row.numero)}
+                                alt={`Animalito ${row.numero}`}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                                onError={(e) => {
+                                  const img = e.currentTarget
+                                  if (img.dataset.fallbackApplied === '1') return
+                                  img.dataset.fallbackApplied = '1'
+                                  img.src = PLACEHOLDER_ANIMAL_IMAGE
+                                }}
+                              />
+                            </div>
+
+                            <div className="text-sm font-semibold leading-tight">
+                              N° {row.numero}
+                            </div>
+                            <div className="mt-0.5 space-y-0.5 text-xs text-muted-foreground">
+                              <div>
+                                Monto:{' '}
+                                <span className="font-medium text-foreground">
+                                  {row.monto}
+                                </span>
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="text-sm font-semibold leading-tight">
-                                  N° {row.numero}
-                                </div>
-                                <div className="mt-0.5 space-y-0.5 text-xs text-muted-foreground">
-                                  <div>
-                                    Monto:{' '}
-                                    <span className="font-medium text-foreground">
-                                      {row.monto}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    Comprados:{' '}
-                                    <span className="font-medium text-foreground">
-                                      {row.comprados}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    Multiplicador x70:{' '}
-                                    <span className="font-medium text-foreground">
-                                      {formatAmount(multiplicador70)}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    Multiplicador x5:{' '}
-                                    <span className="font-medium text-foreground">
-                                      {formatAmount(multiplicador5)}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    Total:{' '}
-                                    <span className="font-medium text-foreground">
-                                      {formatAmount(total)}
-                                    </span>
-                                  </div>
-                                </div>
+                              <div>
+                                Comprados:{' '}
+                                <span className="font-medium text-foreground">
+                                  {row.comprados}
+                                </span>
+                              </div>
+                              <div>
+                                Multiplicador x70:{' '}
+                                <span className="font-medium text-foreground">
+                                  {formatAmount(multiplicador70)}
+                                </span>
+                              </div>
+                              <div>
+                                Multiplicador x5 (base):{' '}
+                                <span className="font-medium text-foreground">
+                                  {formatAmount(multiplicador5Base)}
+                                </span>
+                              </div>
+                              <div>
+                                Multiplicador x5 (adyacentes):{' '}
+                                <span className="font-medium text-foreground">
+                                  {formatAmount(multiplicador5)}
+                                </span>
+                              </div>
+                              <div>
+                                Total:{' '}
+                                <span className="font-medium text-foreground">
+                                  {formatAmount(total)}
+                                </span>
                               </div>
                             </div>
                           </CardContent>
