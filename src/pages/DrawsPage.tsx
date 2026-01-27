@@ -179,8 +179,11 @@ export function DrawsPage() {
       const compradosNumber = parseCompradosNumber(row.comprados)
 
       const n = currentNumero ? Number.parseInt(currentNumero, 10) : NaN
-      const prevNumero = Number.isFinite(n) ? String((n + 99) % 100).padStart(2, '0') : ''
-      const nextNumero = Number.isFinite(n) ? String((n + 1) % 100).padStart(2, '0') : ''
+      // Adyacentes sin wrap-around:
+      // - 00 no tiene anterior
+      // - 99 no tiene siguiente
+      const prevNumero = Number.isFinite(n) && n > 0 ? String(n - 1).padStart(2, '0') : ''
+      const nextNumero = Number.isFinite(n) && n < 99 ? String(n + 1).padStart(2, '0') : ''
 
       const prevMonto = prevNumero ? lolaMontoByNumero.get(prevNumero) ?? 0 : 0
       const nextMonto = nextNumero ? lolaMontoByNumero.get(nextNumero) ?? 0 : 0
