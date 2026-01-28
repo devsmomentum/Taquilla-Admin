@@ -13,7 +13,7 @@ import { toast } from 'sonner'
 import { format, startOfWeek, endOfWeek, addDays, addWeeks, subWeeks, isToday, isBefore, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { CaretLeft, CaretRight, Target, CheckCircle, Calendar, Warning, Clock, Trophy, CurrencyDollar, Users, Storefront, SpinnerGap } from '@phosphor-icons/react'
-import { ANIMALS, Lottery, DailyResult } from '@/lib/types'
+import { ANIMALS, Lottery, DailyResult, DailyResultLola } from '@/lib/types'
 
 const PLACEHOLDER_ANIMAL_IMAGE =
   'data:image/svg+xml;utf8,' +
@@ -98,6 +98,8 @@ export function DrawsPage() {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [resultDetailOpen, setResultDetailOpen] = useState(false)
   const [selectedResult, setSelectedResult] = useState<DailyResult | null>(null)
+  const [lolaResultDetailOpen, setLolaResultDetailOpen] = useState(false)
+  const [selectedLolaResultDetail, setSelectedLolaResultDetail] = useState<DailyResultLola | null>(null)
   const [winners, setWinners] = useState<WinnerItem[]>([])
   const [loadingWinners, setLoadingWinners] = useState(false)
   const [lolaLoadDialogOpen, setLolaLoadDialogOpen] = useState(false)
@@ -136,6 +138,9 @@ export function DrawsPage() {
     setWinners([])
     setLoadingWinners(false)
 
+    setLolaResultDetailOpen(false)
+    setSelectedLolaResultDetail(null)
+
     setLolaLoadDialogOpen(false)
     setSelectedLolaLottery(null)
     setSelectedLolaDate('')
@@ -145,6 +150,11 @@ export function DrawsPage() {
     setLolaTotalTo('')
     setLolaConfirmOpen(false)
   }, [lotteryType])
+
+  const openLolaResultDetail = useCallback((result: DailyResultLola) => {
+    setSelectedLolaResultDetail(result)
+    setLolaResultDetailOpen(true)
+  }, [])
 
   const parseMatrizItem = (raw: string) => {
     const cleaned = (raw || '').trim().replace(/^\(/, '').replace(/\)$/, '')
@@ -584,7 +594,8 @@ export function DrawsPage() {
                             <button
                               onClick={() => {
                                 if (isLolaLottery(lottery)) {
-                                  toast.message(`Resultado Lola: ${number} — Total: ${formatAmount(totalToPay || 0)}`)
+                                  const lolaResult = getResultForLotteryAndDateLola(lottery.id, dateStr)
+                                  if (lolaResult) openLolaResultDetail(lolaResult)
                                   return
                                 }
                                 if (result) handleResultClick(result)
@@ -938,6 +949,147 @@ export function DrawsPage() {
 
           <DialogFooter className="flex-shrink-0">
             <Button variant="outline" onClick={() => setResultDetailOpen(false)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de detalles del resultado (Lola) */}
+      <Dialog
+        open={lolaResultDetailOpen}
+        onOpenChange={(open) => {
+          setLolaResultDetailOpen(open)
+          if (!open) setSelectedLolaResultDetail(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div
+                className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                  (selectedLolaResultDetail?.totalToPay || 0) > 0
+                    ? 'bg-gradient-to-br from-blue-500 to-blue-600'
+                    : 'bg-emerald-100'
+                }`}
+              >
+                {(selectedLolaResultDetail?.totalToPay || 0) > 0 ? (
+                  <Trophy className="h-6 w-6 text-white" weight="fill" />
+                ) : (
+                  <Target className="h-6 w-6 text-emerald-600" weight="fill" />
+                )}
+              </div>
+              <div>
+                <DialogTitle>Detalles del Resultado</DialogTitle>
+                <DialogDescription>
+                  {selectedLolaResultDetail
+                    ? lotteries.find((l) => l.id === selectedLolaResultDetail.lotteryId)?.name || 'Lola'
+                    : 'Lola'}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {selectedLolaResultDetail && (
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
+              {/* Fecha y número */}
+              <div className="bg-muted/50 rounded-lg p-4 text-center relative overflow-hidden">
+                <div className="absolute right-4 top-4 z-10 h-14 w-14 overflow-hidden rounded-md bg-muted shadow">
+                  <img
+                    src={getLolaAnimalImageSrc(selectedLolaResultDetail.number)}
+                    alt={`Animalito ${selectedLolaResultDetail.number}`}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    onError={(e) => {
+                      const img = e.currentTarget
+                      if (img.dataset.fallbackApplied === '1') return
+                      img.dataset.fallbackApplied = '1'
+                      img.src = PLACEHOLDER_ANIMAL_IMAGE
+                    }}
+                  />
+                </div>
+
+                <p className="text-sm text-muted-foreground mb-2">
+                  {selectedLolaResultDetail.resultDate &&
+                    format(parseISO(selectedLolaResultDetail.resultDate), "EEEE d 'de' MMMM yyyy", { locale: es })}
+                </p>
+
+                <div
+                  className={`inline-flex items-center justify-center h-16 w-16 rounded-xl mb-2 ${
+                    (selectedLolaResultDetail.totalToPay || 0) > 0
+                      ? 'bg-gradient-to-br from-blue-500 to-blue-600 ring-4 ring-blue-300'
+                      : 'bg-emerald-100'
+                  }`}
+                >
+                  <span
+                    className={`text-3xl font-bold ${
+                      (selectedLolaResultDetail.totalToPay || 0) > 0 ? 'text-white' : 'text-emerald-700'
+                    }`}
+                  >
+                    {selectedLolaResultDetail.number || '??'}
+                  </span>
+                </div>
+
+                <p className="text-lg font-semibold">Lola</p>
+              </div>
+
+              {/* Montos */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CurrencyDollar className="h-4 w-4 text-red-500" />
+                    <span className="text-xs font-medium text-red-600">Total a Pagar</span>
+                  </div>
+                  <p className="text-xl font-bold text-red-700">
+                    {formatCurrency(selectedLolaResultDetail.totalToPay || 0)}
+                  </p>
+                </div>
+                <div
+                  className={`rounded-lg p-3 border ${
+                    (selectedLolaResultDetail.totalRaised || 0) >= 0
+                      ? 'bg-emerald-50 border-emerald-200'
+                      : 'bg-amber-50 border-amber-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <CurrencyDollar
+                      className={`h-4 w-4 ${
+                        (selectedLolaResultDetail.totalRaised || 0) >= 0 ? 'text-emerald-500' : 'text-amber-500'
+                      }`}
+                    />
+                    <span
+                      className={`text-xs font-medium ${
+                        (selectedLolaResultDetail.totalRaised || 0) >= 0
+                          ? 'text-emerald-600'
+                          : 'text-amber-600'
+                      }`}
+                    >
+                      {(selectedLolaResultDetail.totalRaised || 0) >= 0 ? 'Ganancia Neta' : 'Pérdida'}
+                    </span>
+                  </div>
+                  <p
+                    className={`text-xl font-bold ${
+                      (selectedLolaResultDetail.totalRaised || 0) >= 0 ? 'text-emerald-700' : 'text-amber-700'
+                    }`}
+                  >
+                    {formatCurrency(Math.abs(selectedLolaResultDetail.totalRaised || 0))}
+                  </p>
+                </div>
+              </div>
+
+              {/* Info adicional */}
+              <div className="text-xs text-muted-foreground text-center">
+                <p>
+                  Resultado registrado:{' '}
+                  {selectedLolaResultDetail.createdAt &&
+                    format(parseISO(selectedLolaResultDetail.createdAt), 'dd/MM/yyyy HH:mm', { locale: es })}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex-shrink-0">
+            <Button variant="outline" onClick={() => setLolaResultDetailOpen(false)}>
               Cerrar
             </Button>
           </DialogFooter>
