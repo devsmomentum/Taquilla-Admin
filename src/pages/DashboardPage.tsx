@@ -201,6 +201,27 @@ export function DashboardPage() {
     })
   }, [winners, appliedDateRange])
 
+  const filteredPolloWinners = useMemo(() => {
+    if (lotteryType !== 'pollo_lleno') return []
+    const fromDate = startOfDay(appliedDateRange.from)
+    const toDate = endOfDay(appliedDateRange.to)
+    return winners.filter((winner) => {
+      const winnerDate = new Date(winner.createdAt)
+      if (!isWithinInterval(winnerDate, { start: fromDate, end: toDate })) return false
+      return (winner.lotteryId || '') === 'pollo-lleno'
+    })
+  }, [winners, appliedDateRange, lotteryType])
+
+  const polloWinnersByDate = useMemo(() => {
+    const nextMap: Record<string, number> = {}
+    filteredPolloWinners.forEach((winner) => {
+      const dateKey = getDateKey(winner.createdAt)
+      if (!dateKey) return
+      nextMap[dateKey] = (nextMap[dateKey] || 0) + 1
+    })
+    return nextMap
+  }, [filteredPolloWinners])
+
   // Totales desde comercializadoras (para admin)
   const comercializadoraTotals = useMemo(() => {
     if (!comercializadoraStats || comercializadoraStats.length === 0) {
@@ -407,11 +428,11 @@ export function DashboardPage() {
       const resultsCount = filteredResults.length
       const resultsWithWinners = filteredResults.filter(result => {
         const dateKey = getDateKey(result.resultDate)
-        return (polloSalesStats.winnersByDate?.[dateKey] || 0) > 0
+        return (polloWinnersByDate[dateKey] || 0) > 0
       }).length
 
       const totalSales = polloSalesStats.rangeSales
-      const totalPayout = polloSalesStats.rangePrizes
+      const totalPayout = filteredPolloWinners.reduce((sum, winner) => sum + winner.potentialWin, 0)
       const totalCommissions = polloSalesStats.rangeTaquillaCommissions
       const totalRaised = totalSales - totalPayout - totalCommissions
 
@@ -542,7 +563,7 @@ export function DashboardPage() {
       resultsCount,
       resultsWithWinners
     }
-  }, [dailyResults, dailyResultsLola, dailyResultsPolloLleno, appliedDateRange, filteredWinners, salesStats, lolaSalesStats, polloSalesStats, comercializadoraStats, comercializadoraTotals, agencyStats, agencyTotals, taquillaStats, taquillaTotals, isAdmin, isComercializadora, isSubdistribuidor, isAgencia, periodType, currentUserCommissionPercent, lotteryType])
+  }, [dailyResults, dailyResultsLola, dailyResultsPolloLleno, appliedDateRange, filteredWinners, filteredPolloWinners, polloWinnersByDate, salesStats, lolaSalesStats, polloSalesStats, comercializadoraStats, comercializadoraTotals, agencyStats, agencyTotals, taquillaStats, taquillaTotals, isAdmin, isComercializadora, isSubdistribuidor, isAgencia, periodType, currentUserCommissionPercent, lotteryType])
 
   // Últimos resultados (para todos los usuarios)
   const latestClassicResults = useMemo(() => {
@@ -893,7 +914,7 @@ export function DashboardPage() {
               {lotteryType === 'lola'
                 ? lolaSalesStats.winnersCount
                 : lotteryType === 'pollo_lleno'
-                ? polloSalesStats.winnersCount
+                ? filteredPolloWinners.length
                 : filteredWinners.length} jugadas ganadoras
             </div>
           </CardContent>
@@ -1103,7 +1124,7 @@ export function DashboardPage() {
                       .map((n) => String(n).padStart(2, '0'))
                       .join('-')
                     const dateKey = getDateKey(result.resultDate)
-                    const hasWinners = (polloSalesStats.winnersByDate?.[dateKey] || 0) > 0
+                    const hasWinners = (polloWinnersByDate[dateKey] || 0) > 0
 
                     return (
                       <div key={result.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">

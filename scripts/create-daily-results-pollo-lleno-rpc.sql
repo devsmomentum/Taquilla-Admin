@@ -15,6 +15,8 @@ as $$
 declare
   inserted public.daily_results_pollo_lleno;
   pot_row public.pollo_lleno_pot%rowtype;
+  day_start_utc timestamptz;
+  day_end_utc timestamptz;
   total_pot numeric := 0;
   share5 numeric := 0;
   share6 numeric := 0;
@@ -24,6 +26,17 @@ declare
   prize6 numeric := 0;
   paid_total numeric := 0;
 begin
+  day_start_utc := make_timestamptz(
+    extract(year from p_result_date)::int,
+    extract(month from p_result_date)::int,
+    extract(day from p_result_date)::int,
+    0,
+    0,
+    0,
+    'UTC'
+  );
+  day_end_utc := day_start_utc + interval '1 day';
+
   insert into public.daily_results_pollo_lleno (numbers, result_date)
   values (p_numbers, p_result_date)
   returning * into inserted;
@@ -31,7 +44,8 @@ begin
   select *
     into pot_row
   from public.pollo_lleno_pot
-  where date(created_at) = p_result_date
+  where created_at >= day_start_utc
+    and created_at < day_end_utc
   order by created_at desc
   limit 1;
 
@@ -49,13 +63,15 @@ begin
   select count(*) into winners6_count
   from public.bets_item_pollo_lleno
   where status = 'active'
-    and date(created_at) = p_result_date
+    and created_at >= day_start_utc
+    and created_at < day_end_utc
     and array_length(numbers & p_numbers, 1) >= 6;
 
   select count(*) into winners5_count
   from public.bets_item_pollo_lleno
   where status = 'active'
-    and date(created_at) = p_result_date
+    and created_at >= day_start_utc
+    and created_at < day_end_utc
     and array_length(numbers & p_numbers, 1) = 5;
 
   if winners6_count > 0 then
@@ -67,7 +83,8 @@ begin
            description_prize = 6,
            updated_at = now()
      where status = 'active'
-       and date(created_at) = p_result_date
+       and created_at >= day_start_utc
+       and created_at < day_end_utc
        and array_length(numbers & p_numbers, 1) >= 6;
   end if;
 
@@ -80,7 +97,8 @@ begin
            description_prize = 5,
            updated_at = now()
      where status = 'active'
-       and date(created_at) = p_result_date
+       and created_at >= day_start_utc
+       and created_at < day_end_utc
        and array_length(numbers & p_numbers, 1) = 5;
   end if;
 
