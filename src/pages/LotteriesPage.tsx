@@ -19,7 +19,6 @@ import { formatCurrency } from "@/lib/pot-utils";
 import { supabase } from "@/lib/supabase";
 import { Lottery } from "@/lib/types";
 import { toast } from "sonner";
-import { endOfDay, startOfDay } from "date-fns";
 import {
   Plus,
   Calendar,
@@ -157,14 +156,18 @@ export function LotteriesPage() {
     setPotError(null);
 
     const now = new Date();
-    const from = startOfDay(now).toISOString();
-    const to = endOfDay(now).toISOString();
+    const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const dayStartUtc = `${todayDate}T00:00:00.000Z`;
+    const nextDay = new Date(now);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const nextDate = `${nextDay.getFullYear()}-${String(nextDay.getMonth() + 1).padStart(2, "0")}-${String(nextDay.getDate()).padStart(2, "0")}`;
+    const dayEndExclusiveUtc = `${nextDate}T00:00:00.000Z`;
 
     const { data, error } = await supabase
       .from("pollo_lleno_pot")
       .select("id, created_at, amount_pot, inicial_pot, admin_pot, amount_to_pay")
-      .gte("created_at", from)
-      .lte("created_at", to)
+      .gte("created_at", dayStartUtc)
+      .lt("created_at", dayEndExclusiveUtc)
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -209,9 +212,11 @@ export function LotteriesPage() {
       toast.success("Monto del pote actualizado");
     } else {
       // creating new pot entry for today
+      const now = new Date();
+      const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       const { data, error } = await supabase
         .from("pollo_lleno_pot")
-        .insert({ amount_pot: newValue })
+        .insert({ amount_pot: newValue, created_at: todayDate })
         .select()
         .limit(1)
         .single();

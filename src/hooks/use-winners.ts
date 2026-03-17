@@ -92,7 +92,7 @@ export function useWinners(options?: UseWinnersOptions) {
       let polloQuery = supabase
         .from('bets_item_pollo_lleno')
         .select('id, bets_id, user_id, prize_id, amount, prize, status, created_at, numbers, key_gamble')
-        .eq('status', 'winner')
+        .in('status', ['winner', 'paid'])
         .order('created_at', { ascending: false })
 
       if (startDate) {
@@ -100,10 +100,6 @@ export function useWinners(options?: UseWinnersOptions) {
       }
       if (endDate) {
         polloQuery = polloQuery.lte('created_at', endDate)
-      }
-
-      if (visibleTaquillaIds && visibleTaquillaIds.length > 0) {
-        polloQuery = polloQuery.in('user_id', visibleTaquillaIds)
       }
 
       const { data: polloWinnerItems, error: polloFetchError } = await polloQuery
@@ -128,7 +124,42 @@ export function useWinners(options?: UseWinnersOptions) {
 
       const classicItems = winnerItems || []
       const lolaItems = lolaWinnerItems || []
-      const polloItems = polloWinnerItems || []
+      const polloItemsRaw = polloWinnerItems || []
+
+      const polloItemsWithMissingUser = polloItemsRaw.filter((item: any) => !item.user_id && item.bets_id)
+      let betsUserMap = new Map<string, string>()
+
+      if (polloItemsWithMissingUser.length > 0) {
+        const betIds = Array.from(new Set(polloItemsWithMissingUser.map((item: any) => String(item.bets_id)).filter(Boolean)))
+
+        if (betIds.length > 0) {
+          const { data: betsData, error: betsError } = await supabase
+            .from('bets')
+            .select('id, user_id')
+            .in('id', betIds)
+
+          if (betsError) {
+            console.error('Error resolving Pollo Lleno winners taquillas from bets:', betsError)
+          } else if (betsData) {
+            betsUserMap = new Map(
+              betsData
+                .filter((bet: any) => bet.id && bet.user_id)
+                .map((bet: any) => [String(bet.id), String(bet.user_id)])
+            )
+          }
+        }
+      }
+
+      const polloItems = polloItemsRaw
+        .map((item: any) => ({
+          ...item,
+          resolved_user_id: String(item.user_id || betsUserMap.get(String(item.bets_id || '')) || '')
+        }))
+        .filter((item: any) => {
+          if (!item.resolved_user_id) return false
+          if (!visibleTaquillaIds || visibleTaquillaIds.length === 0) return true
+          return visibleTaquillaIds.includes(item.resolved_user_id)
+        })
 
       if (classicItems.length === 0 && lolaItems.length === 0 && polloItems.length === 0) {
         setWinners([])
@@ -139,7 +170,7 @@ export function useWinners(options?: UseWinnersOptions) {
       const userIds = [...new Set([
         ...classicItems.map(w => w.user_id),
         ...lolaItems.map(w => w.user_id),
-        ...polloItems.map(w => w.user_id)
+        ...polloItems.map((w: any) => w.resolved_user_id)
       ].filter(Boolean))]
 
       // Obtener información de usuarios (taquillas)
@@ -264,7 +295,8 @@ export function useWinners(options?: UseWinnersOptions) {
       })
 
       const mappedPollo: Winner[] = polloItems.map((item: any) => {
-        const userInfo = usersMap.get(item.user_id) || { name: 'Desconocida', email: '' }
+        const resolvedUserId = String(item.resolved_user_id || '')
+        const userInfo = usersMap.get(resolvedUserId) || { name: 'Desconocida', email: '' }
         const numbers = Array.isArray(item.numbers) ? item.numbers : []
         const numbersLabel = numbers
           .map((n: any) => Number(n))
@@ -277,13 +309,13 @@ export function useWinners(options?: UseWinnersOptions) {
         return {
           id: item.id,
           betsId: item.bets_id,
-          odile: item.user_id,
+          odile: resolvedUserId,
           prizeId: item.prize_id || null,
           amount: Number(item.amount) || 0,
           potentialWin: Number(item.prize) || 0,
           status: item.status,
           createdAt: item.created_at,
-          taquillaId: item.user_id,
+          taquillaId: resolvedUserId,
           taquillaName: userInfo.name,
           taquillaEmail: userInfo.email,
           animalNumber,

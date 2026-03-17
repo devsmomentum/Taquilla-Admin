@@ -148,6 +148,8 @@ export function ReportsPage() {
   const [selectedLottery, setSelectedLottery] = useState<string>('all')
   const [polloTickets, setPolloTickets] = useState<Array<{
     id: string
+    bets_id?: string | null
+    user_id?: string | null
     key_gamble: string | null
     numbers: number[] | null
     status: string | null
@@ -270,6 +272,29 @@ export function ReportsPage() {
     })
   }, [winners, selectedLottery, dateRange, lotteryType])
 
+  const filteredPolloWinners = useMemo(() => {
+    if (lotteryType !== 'pollo_lleno') return []
+    return winners.filter((winner) => {
+      const winnerDate = new Date(winner.createdAt)
+      const fromDate = startOfDay(dateRange.from)
+      const toDate = endOfDay(dateRange.to)
+      if (winnerDate < fromDate || winnerDate > toDate) return false
+      if ((winner.lotteryId || '') !== 'pollo-lleno') return false
+      if (selectedLottery !== 'all' && winner.lotteryId !== selectedLottery) return false
+      return true
+    })
+  }, [winners, selectedLottery, dateRange, lotteryType])
+
+  const polloWinnersByDate = useMemo(() => {
+    const nextMap: Record<string, number> = {}
+    filteredPolloWinners.forEach((winner) => {
+      const dateKey = getDateKey(winner.createdAt)
+      if (!dateKey) return
+      nextMap[dateKey] = (nextMap[dateKey] || 0) + 1
+    })
+    return nextMap
+  }, [filteredPolloWinners])
+
   // Calcular totales desde los hooks de comercializadora/agencia/taquilla según el tipo de usuario
   // Obtener el porcentaje de participación en utilidades del usuario logueado
   const currentUserProfitPercent = useMemo(() => {
@@ -306,7 +331,7 @@ export function ReportsPage() {
 
       if (lotteryType === 'pollo_lleno') {
         totalSales = polloSalesStats.rangeSales
-        totalPrizes = polloSalesStats.rangePrizes
+        totalPrizes = filteredPolloWinners.reduce((sum, w) => sum + w.potentialWin, 0)
         totalCommissions = polloSalesStats.rangeTaquillaCommissions
         totalBalance = totalSales - totalPrizes - totalCommissions
         return { totalSales, totalPrizes, totalCommissions, totalBalance }
@@ -412,7 +437,7 @@ export function ReportsPage() {
     }
 
     return { totalSales, totalPrizes, totalCommissions, totalBalance }
-  }, [lotteryType, lolaSalesStats, polloSalesStats, filteredWinners, isAdmin, isComercializadora, isSubdistribuidor, isAgencia, comercializadoraStats, agencyStats, taquillaStats, periodFilter, currentUser, comercializadoras, subdistribuidores, agencies])
+  }, [lotteryType, lolaSalesStats, polloSalesStats, filteredWinners, filteredPolloWinners, isAdmin, isComercializadora, isSubdistribuidor, isAgencia, comercializadoraStats, agencyStats, taquillaStats, periodFilter, currentUser, comercializadoras, subdistribuidores, agencies])
 
   // Estadísticas principales - usando datos filtrados por taquillas visibles
   const stats = useMemo(() => {
@@ -420,11 +445,11 @@ export function ReportsPage() {
 
     // Total de jugadas ganadoras (filtrado por taquillas visibles)
     const totalWinningBets = lotteryType === 'pollo_lleno'
-      ? polloSalesStats.winnersCount
+      ? filteredPolloWinners.length
       : filteredWinners.length
     // Total pagado en premios - usar filteredWinners que ya está filtrado por visibleTaquillaIds
     const totalPayout = lotteryType === 'pollo_lleno'
-      ? polloSalesStats.rangePrizes
+      ? filteredPolloWinners.reduce((sum, w) => sum + w.potentialWin, 0)
       : filteredWinners.reduce((sum, w) => sum + w.potentialWin, 0)
     const totalBetAmount = lotteryType === 'pollo_lleno'
       ? polloSalesStats.rangeSales
@@ -452,7 +477,7 @@ export function ReportsPage() {
     const resultsWithWinners = lotteryType === 'pollo_lleno'
       ? filteredResults.filter(r => {
           const dateKey = getDateKey((r as any).resultDate)
-          return !!dateKey && (polloSalesStats.winnersByDate?.[dateKey] || 0) > 0
+          return !!dateKey && (polloWinnersByDate[dateKey] || 0) > 0
         }).length
       : filteredResults.filter(r => {
           const resultDate = (r as any).resultDate.split('T')[0]
@@ -474,16 +499,16 @@ export function ReportsPage() {
       periodPrizes,
       periodCommissions
     }
-  }, [filteredResults, filteredWinners, periodTotals, polloSalesStats, lotteryType])
+  }, [filteredResults, filteredWinners, filteredPolloWinners, polloWinnersByDate, periodTotals, polloSalesStats, lotteryType])
 
   // Top loterías por premios pagados - usando filteredWinners (filtrado por taquillas visibles)
   const topLotteries = useMemo(() => {
     if (lotteryType === 'pollo_lleno') {
-      if ((polloSalesStats.rangePrizes || 0) <= 0 && (polloSalesStats.winnersCount || 0) <= 0) return []
+      if (filteredPolloWinners.length === 0) return []
       return [{
         name: 'Pollo Lleno',
-        payout: polloSalesStats.rangePrizes || 0,
-        wins: polloSalesStats.winnersCount || 0
+        payout: filteredPolloWinners.reduce((sum, winner) => sum + winner.potentialWin, 0),
+        wins: filteredPolloWinners.length
       }]
     }
     const lotteryStats = new Map<string, { name: string; payout: number; wins: number }>()
@@ -502,32 +527,23 @@ export function ReportsPage() {
     return Array.from(lotteryStats.values())
       .sort((a, b) => b.payout - a.payout)
       .slice(0, 5)
-  }, [filteredWinners, polloSalesStats, lotteryType])
+  }, [filteredWinners, filteredPolloWinners, lotteryType])
 
   // Top números ganadores - usando filteredWinners (filtrado por taquillas visibles)
   const topWinningNumbers = useMemo(() => {
     if (lotteryType === 'pollo_lleno') {
       const numberStats = new Map<string, { number: string; wins: number; totalPayout: number }>()
-      filteredResults.forEach((result: any) => {
-        const nums = Array.isArray(result.numbers) ? result.numbers : []
-        const sequence = nums
-          .slice()
-          .sort((a: number, b: number) => a - b)
-          .map((n: any) => String(n).padStart(2, '0'))
-          .join('-')
-        if (!sequence) return
+      filteredPolloWinners.forEach((winner) => {
+        const sequence = winner.animalNumber || '??'
         const current = numberStats.get(sequence) || { number: sequence, wins: 0, totalPayout: 0 }
-        numberStats.set(sequence, { ...current, wins: current.wins + 1 })
+        numberStats.set(sequence, {
+          number: sequence,
+          wins: current.wins + 1,
+          totalPayout: current.totalPayout + winner.potentialWin
+        })
       })
 
-      const totalWins = Array.from(numberStats.values()).reduce((sum, item) => sum + item.wins, 0)
-      const totalPrizes = polloSalesStats.rangePrizes || 0
-      const normalized = Array.from(numberStats.values()).map((item) => ({
-        ...item,
-        totalPayout: totalWins > 0 ? (totalPrizes * (item.wins / totalWins)) : 0
-      }))
-
-      return normalized
+      return Array.from(numberStats.values())
         .sort((a, b) => b.wins - a.wins)
         .slice(0, 10)
     }
@@ -550,18 +566,29 @@ export function ReportsPage() {
     return Array.from(numberStats.values())
       .sort((a, b) => b.wins - a.wins)
       .slice(0, 10)
-  }, [filteredWinners, filteredResults, polloSalesStats, lotteryType])
+  }, [filteredWinners, filteredPolloWinners, lotteryType])
 
   // Top taquillas por premios ganados
   const topTaquillas = useMemo(() => {
     if (lotteryType === 'pollo_lleno') {
-      return polloSalesStats.salesByTaquilla
-        .map((t) => ({
-          name: t.taquillaName,
-          wins: t.winnersCount,
-          totalPayout: t.prizes,
-          totalBet: t.sales
-        }))
+      const taquillaStats = new Map<string, { name: string; wins: number; totalPayout: number; totalBet: number }>()
+
+      filteredPolloWinners.forEach((winner) => {
+        const current = taquillaStats.get(winner.taquillaId) || {
+          name: winner.taquillaName,
+          wins: 0,
+          totalPayout: 0,
+          totalBet: 0
+        }
+        taquillaStats.set(winner.taquillaId, {
+          name: winner.taquillaName,
+          wins: current.wins + 1,
+          totalPayout: current.totalPayout + winner.potentialWin,
+          totalBet: current.totalBet + winner.amount
+        })
+      })
+
+      return Array.from(taquillaStats.values())
         .sort((a, b) => b.totalPayout - a.totalPayout)
         .slice(0, 10)
     }
@@ -585,7 +612,7 @@ export function ReportsPage() {
     return Array.from(taquillaStats.values())
       .sort((a, b) => b.totalPayout - a.totalPayout)
       .slice(0, 10)
-  }, [filteredWinners, polloSalesStats, lotteryType])
+  }, [filteredWinners, filteredPolloWinners, lotteryType])
 
   // Cargar estadísticas de apuestas cuando cambien los filtros
   useEffect(() => {
@@ -616,16 +643,12 @@ export function ReportsPage() {
       const from = startOfDay(appliedDateRange.from).toISOString()
       const to = endOfDay(appliedDateRange.to).toISOString()
 
-      let query = supabase
+      const query = supabase
         .from('bets_item_pollo_lleno')
-        .select('id, key_gamble, numbers, status, prize, description_prize, amount, created_at, user_id')
+        .select('id, bets_id, key_gamble, numbers, status, prize, description_prize, amount, created_at, user_id')
         .gte('created_at', from)
         .lte('created_at', to)
         .order('created_at', { ascending: false })
-
-      if (visibleTaquillaIds && visibleTaquillaIds.length > 0) {
-        query = query.in('user_id', visibleTaquillaIds)
-      }
 
       const { data, error } = await query
 
@@ -636,7 +659,42 @@ export function ReportsPage() {
         return
       }
 
-      setPolloTickets((data || []) as typeof polloTickets)
+      const rawTickets = (data || []) as typeof polloTickets
+      const ticketsWithMissingUser = rawTickets.filter((ticket) => !ticket.user_id && ticket.bets_id)
+      let betsUserMap = new Map<string, string>()
+
+      if (ticketsWithMissingUser.length > 0) {
+        const betIds = Array.from(new Set(ticketsWithMissingUser.map((ticket) => String(ticket.bets_id)).filter(Boolean)))
+
+        if (betIds.length > 0) {
+          const { data: betsData, error: betsError } = await supabase
+            .from('bets')
+            .select('id, user_id')
+            .in('id', betIds)
+
+          if (betsError) {
+            console.error('Error resolving Pollo Lleno ticket taquillas:', betsError)
+          } else if (betsData) {
+            betsUserMap = new Map(
+              betsData
+                .filter((bet: any) => bet.id && bet.user_id)
+                .map((bet: any) => [String(bet.id), String(bet.user_id)])
+            )
+          }
+        }
+      }
+
+      const resolvedTickets = rawTickets
+        .map((ticket) => ({
+          ...ticket,
+          user_id: ticket.user_id || betsUserMap.get(String(ticket.bets_id || '')) || null
+        }))
+        .filter((ticket) => {
+          if (!visibleTaquillaIds || visibleTaquillaIds.length === 0) return true
+          return !!ticket.user_id && visibleTaquillaIds.includes(ticket.user_id)
+        })
+
+      setPolloTickets(resolvedTickets)
       setPolloTicketsLoading(false)
     }
 

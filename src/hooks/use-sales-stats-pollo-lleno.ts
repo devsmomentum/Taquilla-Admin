@@ -72,15 +72,11 @@ export function useSalesStatsPolloLleno(options: UseSalesStatsPolloLlenoOptions)
       const queryStart = startOfDay(options.dateFrom).toISOString()
       const queryEnd = endOfDay(options.dateTo).toISOString()
 
-      let itemsQuery = supabase
+      const itemsQuery = supabase
         .from('bets_item_pollo_lleno')
-        .select('*')
+        .select('id, bets_id, user_id, amount, prize, status, created_at')
         .gte('created_at', queryStart)
         .lte('created_at', queryEnd)
-
-      if (visibleTaquillaIds && visibleTaquillaIds.length > 0) {
-        itemsQuery = itemsQuery.in('user_id', visibleTaquillaIds)
-      }
 
       const { data: items, error: itemsError } = await itemsQuery
 
@@ -91,6 +87,30 @@ export function useSalesStatsPolloLleno(options: UseSalesStatsPolloLlenoOptions)
         return
       }
 
+      const itemsWithMissingUser = (items || []).filter((item: any) => !item.user_id && item.bets_id)
+      let betsUserMap = new Map<string, string>()
+
+      if (itemsWithMissingUser.length > 0) {
+        const betIds = Array.from(new Set(itemsWithMissingUser.map((item: any) => String(item.bets_id)).filter(Boolean)))
+
+        if (betIds.length > 0) {
+          const { data: betsData, error: betsError } = await supabase
+            .from('bets')
+            .select('id, user_id')
+            .in('id', betIds)
+
+          if (betsError) {
+            console.error('Error resolving Pollo Lleno taquillas from bets:', betsError)
+          } else if (betsData) {
+            betsUserMap = new Map(
+              betsData
+                .filter((bet: any) => bet.id && bet.user_id)
+                .map((bet: any) => [String(bet.id), String(bet.user_id)])
+            )
+          }
+        }
+      }
+
       const taquillaMap = new Map<string, { sales: number; betsCount: number; winnersCount: number; prizes: number }>()
       const winnersByDate: Record<string, number> = {}
       let totalSales = 0
@@ -99,8 +119,12 @@ export function useSalesStatsPolloLleno(options: UseSalesStatsPolloLlenoOptions)
       let totalPrizes = 0
 
       ;(items || []).forEach((item: any) => {
-        const taquillaId = String(item.user_id || '')
+        const taquillaId = String(item.user_id || betsUserMap.get(String(item.bets_id || '')) || '')
         if (!taquillaId) return
+
+        if (visibleTaquillaIds && visibleTaquillaIds.length > 0 && !visibleTaquillaIds.includes(taquillaId)) {
+          return
+        }
 
         const amount = Number(item.amount) || 0
         const prize = Number(item.prize) || 0
