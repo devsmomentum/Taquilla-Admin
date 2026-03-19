@@ -184,7 +184,7 @@ export function MainLayout() {
                     <SelectValue placeholder="Selecciona" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="mikaela">Mikaela</SelectItem>
+                    <SelectItem value="mikaela">La Pollita</SelectItem>
                     <SelectItem value="lola">Lola</SelectItem>
                     <SelectItem value="pollo_lleno">Pollo Lleno</SelectItem>
                   </SelectContent>

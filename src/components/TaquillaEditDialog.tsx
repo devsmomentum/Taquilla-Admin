@@ -347,7 +347,7 @@ export function TaquillaEditDialog({ open, taquilla, onOpenChange, onSave, agenc
                   }
                 />
                 <Label htmlFor="taquilla-edit-lottery-mikaela" className="font-normal">
-                  Mikaela
+                  La Pollita
                 </Label>
               </div>
 

@@ -273,7 +273,7 @@ export const ANIMALS = [
   { number: "18", name: "Burro" },
   { number: "19", name: "Limón" },
   { number: "20", name: "Cochino" },
-  { number: "21", name: "Mikaela" },
+  { number: "21", name: "La Pollita" },
   { number: "22", name: "Pato" },
   { number: "23", name: "Cuchara" },
   { number: "24", name: "Ojo" },

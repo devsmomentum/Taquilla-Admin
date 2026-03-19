@@ -403,7 +403,7 @@ export function TaquillaDialog({ open, onOpenChange, onSave, agencies, defaultAg
                   }
                 />
                 <Label htmlFor="taquilla-lottery-mikaela" className="font-normal">
-                  Mikaela
+                  La Pollita
                 </Label>
               </div>
 

@@ -681,7 +681,7 @@ export function DrawsPage() {
                 ? 'No hay sorteos activos de Lola para esta vista'
                 : lotteryType === 'pollo_lleno'
                 ? 'No hay sorteos activos de Pollo Lleno para esta vista'
-                : 'No hay sorteos activos de Mikaela para esta vista'}
+                : 'No hay sorteos activos de La Pollita para esta vista'}
             </p>
           </CardContent>
         </Card>
