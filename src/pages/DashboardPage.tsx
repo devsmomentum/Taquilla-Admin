@@ -1241,7 +1241,7 @@ export function DashboardPage() {
               <Target className="h-5 w-5 text-primary" />
               <h3 className="font-semibold">Loterías Activas</h3>
               <Badge variant="outline" className="ml-auto text-[10px]">
-                {lotteryType === 'lola' ? 'Lola' : lotteryType === 'pollo_lleno' ? 'Pollo Lleno' : 'Mikaela'}
+                {lotteryType === 'lola' ? 'Lola' : lotteryType === 'pollo_lleno' ? 'Pollo Lleno' : 'La Pollita'}
               </Badge>
             </div>
 
