@@ -14,7 +14,7 @@ import { useAgencyStats } from '@/hooks/use-agency-stats'
 import { useTaquillaStats } from '@/hooks/use-taquilla-stats'
 import { useHierarchicalStats } from '@/hooks/use-hierarchical-stats'
 import { HierarchicalStatsTable } from '@/components/HierarchicalStatsTable'
-import { formatCurrency } from '@/lib/pot-utils'
+import { formatCurrency, formatHour12 } from '@/lib/pot-utils'
 import { format, parseISO, startOfDay, endOfDay, startOfWeek, startOfMonth, isWithinInterval, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
@@ -906,7 +906,9 @@ export function DashboardPage() {
                 <Trophy className="h-5 w-5 text-white" weight="fill" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-red-600">{formatCurrency(periodStats.totalPayout)}</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {(lotteryType === 'pollo_lleno' && !isAdmin) ? '-' : formatCurrency(periodStats.totalPayout)}
+                </p>
                 <p className="text-xs text-muted-foreground">Premios</p>
               </div>
             </div>
@@ -914,8 +916,8 @@ export function DashboardPage() {
               {lotteryType === 'lola'
                 ? lolaSalesStats.winnersCount
                 : lotteryType === 'pollo_lleno'
-                ? filteredPolloWinners.length
-                : filteredWinners.length} jugadas ganadoras
+                  ? filteredPolloWinners.length
+                  : filteredWinners.length} jugadas ganadoras
             </div>
           </CardContent>
         </Card>
@@ -930,7 +932,7 @@ export function DashboardPage() {
                 <div className="space-y-1">
                   <div>
                     <p className={`text-lg font-bold ${periodStats.totalRaised >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {periodStats.totalRaised < 0 ? '-' : ''}{formatCurrency(Math.abs(periodStats.totalRaised))}
+                      {(lotteryType === 'pollo_lleno' && !isAdmin) ? '-' : (periodStats.totalRaised < 0 ? '-' : '') + formatCurrency(Math.abs(periodStats.totalRaised))}
                     </p>
                     <p className="text-xs text-muted-foreground">Utilidad</p>
                   </div>
@@ -938,13 +940,13 @@ export function DashboardPage() {
                     <>
                       <div className="pt-1 border-t">
                         <p className={`text-sm font-semibold text-gray-600`}>
-                          {formatCurrency(periodStats.totalRaised * (currentUserProfitPercent / 100))}
+                          {(lotteryType === 'pollo_lleno' && !isAdmin) ? '-' : formatCurrency(periodStats.totalRaised * (currentUserProfitPercent / 100))}
                         </p>
                         <p className="text-xs text-muted-foreground">Mi Participación ({currentUserProfitPercent}%)</p>
                       </div>
                       <div className="pt-1">
                         <p className={`text-lg font-bold text-gray-900`}>
-                          {formatCurrency(periodStats.totalRaised * (1 - currentUserProfitPercent / 100))}
+                          {(lotteryType === 'pollo_lleno' && !isAdmin) ? '-' : formatCurrency(periodStats.totalRaised * (1 - currentUserProfitPercent / 100))}
                         </p>
                         <p className="text-xs text-muted-foreground">Restante</p>
                       </div>
@@ -1252,7 +1254,7 @@ export function DashboardPage() {
                   <span className="text-sm font-medium truncate">{lottery.name}</span>
                   {lottery.drawTime && (
                     <Badge variant="outline" className="ml-auto text-[10px]">
-                      {lottery.drawTime}
+                      {formatHour12(lottery.drawTime)}
                     </Badge>
                   )}
                 </div>

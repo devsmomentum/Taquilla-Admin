@@ -10,7 +10,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useApp } from '@/contexts/AppContext'
 import { useLotteryTypePreference } from '@/contexts/LotteryTypeContext'
-import { formatCurrency } from '@/lib/pot-utils'
+import { formatCurrency, formatHour12 } from '@/lib/pot-utils'
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
@@ -499,7 +499,7 @@ export function WinnersPage() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <CalendarBlank className="h-3 w-3 shrink-0" />
-                      <span>{format(new Date(winner.createdAt), "dd/MM/yyyy HH:mm", { locale: es })}</span>
+                      <span>{format(new Date(winner.createdAt), "dd/MM/yyyy", { locale: es })} {formatHour12(format(new Date(winner.createdAt), "HH:mm"))}</span>
                     </div>
 
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -684,7 +684,7 @@ export function WinnersPage() {
                     <span className="text-sm">Hora</span>
                   </div>
                   <span className="text-sm font-medium">
-                    {format(new Date(selectedWinner.createdAt), "HH:mm", { locale: es })}
+                    {formatHour12(format(new Date(selectedWinner.createdAt), "HH:mm"))}
                   </span>
                 </div>
 

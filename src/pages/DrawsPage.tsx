@@ -11,6 +11,7 @@ import { useApp } from '@/contexts/AppContext'
 import { useLotteryTypePreference } from '@/contexts/LotteryTypeContext'
 import { toast } from 'sonner'
 import { format, startOfWeek, endOfWeek, addDays, addWeeks, subWeeks, isToday, isBefore, parseISO } from 'date-fns'
+import { formatHour12 } from '@/lib/pot-utils'
 import { es } from 'date-fns/locale'
 import { CaretLeft, CaretRight, Target, CheckCircle, Calendar, Warning, Clock, Trophy, CurrencyDollar, Users, Storefront, SpinnerGap } from '@phosphor-icons/react'
 import { ANIMALS, Lottery, DailyResult, DailyResultLola, DailyResultPolloLleno } from '@/lib/types'
@@ -725,7 +726,7 @@ export function DrawsPage() {
                         </div>
                         <div>
                           <p className="font-medium text-sm">{lottery.name}</p>
-                          <p className="text-xs text-muted-foreground">{lottery.drawTime}</p>
+                          <p className="text-xs text-muted-foreground">{formatHour12(lottery.drawTime)}</p>
                         </div>
                       </div>
                     </td>
@@ -805,7 +806,7 @@ export function DrawsPage() {
                                 )}
                               </div>
                               {isPendingToday && (
-                                <span className="text-[10px] text-blue-500">{lottery.drawTime}</span>
+                                <span className="text-[10px] text-blue-500">{formatHour12(lottery.drawTime)}</span>
                               )}
                             </div>
                           ) : isSelected ? (

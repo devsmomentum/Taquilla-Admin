@@ -15,7 +15,7 @@ import { LotteryDialog } from "@/components/LotteryDialog";
 import { useApp } from "@/contexts/AppContext";
 import { useLotteryTypePreference } from "@/contexts/LotteryTypeContext";
 import { filterLotteries } from "@/lib/filter-utils";
-import { formatCurrency } from "@/lib/pot-utils";
+import { formatCurrency, formatHour12 } from "@/lib/pot-utils";
 import { supabase } from "@/lib/supabase";
 import { Lottery } from "@/lib/types";
 import { toast } from "sonner";
@@ -532,7 +532,7 @@ export function LotteriesPage() {
                       <span>
                         Abre:{" "}
                         <span className="font-medium text-foreground">
-                          {lottery.openingTime}
+                          {formatHour12(lottery.openingTime)}
                         </span>
                       </span>
                     </div>
@@ -542,7 +542,7 @@ export function LotteriesPage() {
                       <span>
                         Cierra:{" "}
                         <span className="font-medium text-foreground">
-                          {lottery.closingTime}
+                          {formatHour12(lottery.closingTime)}
                         </span>
                       </span>
                     </div>
@@ -552,7 +552,7 @@ export function LotteriesPage() {
                       <span>
                         Jugada:{" "}
                         <span className="font-medium text-foreground">
-                          {lottery.drawTime}
+                          {formatHour12(lottery.drawTime)}
                         </span>
                       </span>
                     </div>
