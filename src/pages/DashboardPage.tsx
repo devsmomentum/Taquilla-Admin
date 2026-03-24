@@ -14,6 +14,7 @@ import { useAgencyStats } from '@/hooks/use-agency-stats'
 import { useTaquillaStats } from '@/hooks/use-taquilla-stats'
 import { useHierarchicalStats } from '@/hooks/use-hierarchical-stats'
 import { HierarchicalStatsTable } from '@/components/HierarchicalStatsTable'
+import { LotteryTotalsTable, LotteryTotalsRow } from '@/components/LotteryTotalsTable'
 import { formatCurrency, formatHour12 } from '@/lib/pot-utils'
 import { format, parseISO, startOfDay, endOfDay, startOfWeek, startOfMonth, isWithinInterval, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -100,21 +101,21 @@ export function DashboardPage() {
 
   const { stats: salesStats, loading: salesLoading, refresh: refreshSales } = useSalesStats({
     visibleTaquillaIds,
-    enabled: lotteryType === 'mikaela'
+    enabled: true
   })
 
   const { stats: lolaSalesStats, loading: lolaSalesLoading, refresh: refreshLolaSales } = useSalesStatsLola({
     visibleTaquillaIds,
     dateFrom: appliedDateRange.from,
     dateTo: appliedDateRange.to,
-    enabled: lotteryType === 'lola'
+    enabled: true
   })
 
   const { stats: polloSalesStats, loading: polloSalesLoading, refresh: refreshPolloSales } = useSalesStatsPolloLleno({
     visibleTaquillaIds,
     dateFrom: appliedDateRange.from,
     dateTo: appliedDateRange.to,
-    enabled: lotteryType === 'pollo_lleno'
+    enabled: true
   })
 
   // Determinar tipo de usuario
@@ -130,7 +131,7 @@ export function DashboardPage() {
     taquillas: visibleTaquillas || [],
     dateFrom: appliedDateRange.from,
     dateTo: appliedDateRange.to,
-    enabled: lotteryType === 'mikaela'
+    enabled: true
   })
 
   // Stats de agencias para la tabla (para comercializadoras)
@@ -139,7 +140,7 @@ export function DashboardPage() {
     taquillas: visibleTaquillas || [],
     dateFrom: appliedDateRange.from,
     dateTo: appliedDateRange.to,
-    enabled: lotteryType === 'mikaela'
+    enabled: true
   })
 
   // Stats de taquillas para la tabla (para agencias)
@@ -147,7 +148,7 @@ export function DashboardPage() {
     taquillas: visibleTaquillas || [],
     dateFrom: appliedDateRange.from,
     dateTo: appliedDateRange.to,
-    enabled: lotteryType === 'mikaela'
+    enabled: true
   })
 
   // Stats jerárquicos (para la tabla expandible)
@@ -564,6 +565,147 @@ export function DashboardPage() {
       resultsWithWinners
     }
   }, [dailyResults, dailyResultsLola, dailyResultsPolloLleno, appliedDateRange, filteredWinners, filteredPolloWinners, polloWinnersByDate, salesStats, lolaSalesStats, polloSalesStats, comercializadoraStats, comercializadoraTotals, agencyStats, agencyTotals, taquillaStats, taquillaTotals, isAdmin, isComercializadora, isSubdistribuidor, isAgencia, periodType, currentUserCommissionPercent, lotteryType])
+
+  const mikaelaTotalsForTable = useMemo(() => {
+    const fromDate = startOfDay(appliedDateRange.from)
+    const toDate = endOfDay(appliedDateRange.to)
+    const filteredResults = dailyResults.filter(r => {
+      const resultDate = parseISO(r.resultDate)
+      if (!isWithinInterval(resultDate, { start: fromDate, end: toDate })) return false
+      return !r.lotteryId.startsWith('lola-')
+    })
+
+    if (isAdmin && comercializadoraStats.length > 0) {
+      return {
+        totalSales: comercializadoraTotals.totalSales,
+        totalPayout: comercializadoraTotals.totalPrizes,
+        totalCommissions: comercializadoraTotals.totalCommissions
+      }
+    }
+
+    if (isComercializadora && agencyStats.length > 0) {
+      const totalSales = agencyTotals.totalSales
+      const totalPayout = agencyTotals.totalPrizes
+      const totalCommissions = totalSales * (currentUserCommissionPercent / 100)
+      return { totalSales, totalPayout, totalCommissions }
+    }
+
+    if (isSubdistribuidor && agencyStats.length > 0) {
+      const totalSales = agencyTotals.totalSales
+      const totalPayout = agencyTotals.totalPrizes
+      const totalCommissions = totalSales * (currentUserCommissionPercent / 100)
+      return { totalSales, totalPayout, totalCommissions }
+    }
+
+    if (isAgencia && taquillaStats.length > 0) {
+      const totalSales = taquillaTotals.totalSales
+      const totalPayout = taquillaTotals.totalPrizes
+      const totalCommissions = totalSales * (currentUserCommissionPercent / 100)
+      return { totalSales, totalPayout, totalCommissions }
+    }
+
+    const totalSales = periodType === 'today'
+      ? salesStats.todaySales
+      : periodType === 'week'
+      ? salesStats.weekSales
+      : salesStats.monthSales
+
+    const totalPayout = filteredWinners.reduce((sum, w) => sum + w.potentialWin, 0)
+
+    const totalCommissions = periodType === 'today'
+      ? salesStats.todayTaquillaCommissions
+      : periodType === 'week'
+      ? (salesStats.weekTaquillaCommissions || 0)
+      : (salesStats.monthTaquillaCommissions || 0)
+
+    return { totalSales, totalPayout, totalCommissions }
+  }, [
+    appliedDateRange,
+    dailyResults,
+    isAdmin,
+    isComercializadora,
+    isSubdistribuidor,
+    isAgencia,
+    comercializadoraStats,
+    comercializadoraTotals,
+    agencyStats,
+    agencyTotals,
+    taquillaStats,
+    taquillaTotals,
+    currentUserCommissionPercent,
+    periodType,
+    salesStats,
+    filteredWinners
+  ])
+
+  const lolaPayoutForTable = useMemo(() => {
+    const fromDate = startOfDay(appliedDateRange.from)
+    const toDate = endOfDay(appliedDateRange.to)
+    return dailyResultsLola
+      .filter(r => {
+        const resultDate = parseISO(r.resultDate)
+        return isWithinInterval(resultDate, { start: fromDate, end: toDate })
+      })
+      .reduce((sum, r) => sum + (r.totalToPay || 0), 0)
+  }, [appliedDateRange, dailyResultsLola])
+
+  const lotteryTotalsRows = useMemo<LotteryTotalsRow[]>(() => {
+    const participationPercent = currentUserProfitPercent || 0
+
+    const pollitaSales = mikaelaTotalsForTable.totalSales || 0
+    const pollitaPrizes = mikaelaTotalsForTable.totalPayout || 0
+    const pollitaCommission = mikaelaTotalsForTable.totalCommissions || 0
+    const pollitaTotal = pollitaSales - pollitaPrizes
+    const pollitaProfit = pollitaSales - pollitaPrizes - pollitaCommission
+    const pollitaParticipationAmount = pollitaProfit * (participationPercent / 100)
+
+    const lolaSales = lolaSalesStats.rangeSales || 0
+    const lolaPrizes = lolaPayoutForTable || 0
+    const lolaCommission = lolaSalesStats.rangeTaquillaCommissions || 0
+    const lolaTotal = lolaSales - lolaPrizes
+    const lolaProfit = lolaSales - lolaPrizes - lolaCommission
+    const lolaParticipationAmount = lolaProfit * (participationPercent / 100)
+
+    const polloSales = polloSalesStats.rangeSales || 0
+    const polloPrizes = polloSalesStats.rangePrizes || 0
+    const polloCommission = polloSalesStats.rangeTaquillaCommissions || 0
+    const polloTotal = polloSales - polloPrizes
+    const polloProfit = polloSales - polloPrizes - polloCommission
+    const polloParticipationAmount = polloProfit * (participationPercent / 100)
+
+    return [
+      {
+        lotteryName: 'La Pollita',
+        sales: pollitaSales,
+        prizes: pollitaPrizes,
+        commission: pollitaCommission,
+        total: pollitaTotal,
+        profit: pollitaProfit,
+        participationAmount: pollitaParticipationAmount,
+        participationPercent: participationPercent
+      },
+      {
+        lotteryName: 'Lola',
+        sales: lolaSales,
+        prizes: lolaPrizes,
+        commission: lolaCommission,
+        total: lolaTotal,
+        profit: lolaProfit,
+        participationAmount: lolaParticipationAmount,
+        participationPercent: participationPercent
+      },
+      {
+        lotteryName: 'Pollo Lleno',
+        sales: polloSales,
+        prizes: polloPrizes,
+        commission: polloCommission,
+        total: polloTotal,
+        profit: polloProfit,
+        participationAmount: polloParticipationAmount,
+        participationPercent: participationPercent
+      }
+    ]
+  }, [mikaelaTotalsForTable, lolaSalesStats, lolaPayoutForTable, polloSalesStats, currentUserProfitPercent])
 
   // Últimos resultados (para todos los usuarios)
   const latestClassicResults = useMemo(() => {
@@ -1234,6 +1376,8 @@ export function DashboardPage() {
           />
         </CardContent>
       </Card>
+
+      <LotteryTotalsTable rows={lotteryTotalsRows} periodLabel={getPeriodLabel()} />
 
       {/* Loterías activas */}
       {activeLotteriesForType.length > 0 && (
