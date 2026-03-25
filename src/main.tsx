@@ -156,7 +156,7 @@ if (!rootEl) {
                       </ProtectedRoute>
                     } />
                     <Route path="/comercializadores/:comercializadoraId/subdistribuidores/:subdistribuidorId/agencias/:agencyId/taquillas" element={
-                      <ProtectedRoute requiredPermission="comercializadoras">
+                      <ProtectedRoute>
                         <AgenciaTaquillasPage />
                       </ProtectedRoute>
                     } />
