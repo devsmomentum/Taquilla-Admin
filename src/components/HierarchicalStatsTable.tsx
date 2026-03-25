@@ -55,12 +55,13 @@ interface ExpandableRowProps {
   lotteryType?: 'lola' | 'mikaela' | 'pollo_lleno'
 }
 
-function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers, showProfitColumn, lotteryType }: ExpandableRowProps) {
+function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers, showProfitColumn, lotteryType, ...props }: ExpandableRowProps & { currentUserType?: string }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [children, setChildren] = useState<EntityStats[]>([])
   const [isLoadingChildren, setIsLoadingChildren] = useState(false)
   const isLola = lotteryType === 'lola'
   const isPollo = lotteryType === 'pollo_lleno'
+  const isAdmin = props.currentUserType === 'admin' || props.currentUserType === 'Administrador'
 
   // Determinar el tipo de hijos según el tipo actual
   const getChildType = (parentType: string): 'comercializadora' | 'subdistribuidor' | 'agencia' | 'taquilla' | null => {
@@ -447,7 +448,7 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers, showProfitCo
           {formatCurrency(entity.sales)}
         </TableCell>
         <TableCell className="text-right font-semibold text-red-600">
-          {formatCurrency(entity.prizes)}
+          {(isPollo && !isAdmin) ? '-' : formatCurrency(entity.prizes)}
         </TableCell>
         <TableCell className="text-right">
           <div className="flex flex-col items-end">
@@ -461,7 +462,12 @@ function ExpandableRow({ entity, level, dateFrom, dateTo, allUsers, showProfitCo
           </span>
         </TableCell>
         {(entity.type === 'comercializadora' || entity.type === 'subdistribuidor' || entity.type === 'agencia') ? (
-          entity.balance > 0 ? (
+          (isPollo && !isAdmin) ? (
+            <>
+              <TableCell className="text-right">-</TableCell>
+              <TableCell className="text-right">-</TableCell>
+            </>
+          ) : entity.balance > 0 ? (
             <>
               <TableCell className="text-right">
                 <div className="flex flex-col items-end">
@@ -585,6 +591,7 @@ export function HierarchicalStatsTable({
               allUsers={allUsers}
               showProfitColumn={showProfitColumn}
               lotteryType={lotteryType}
+              currentUserType={currentUserType}
             />
           ))}
 

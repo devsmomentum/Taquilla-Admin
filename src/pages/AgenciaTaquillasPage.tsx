@@ -60,6 +60,10 @@ export function AgenciaTaquillasPage() {
     ? subdistribuidores.find(s => s.id === agency.parentId)
     : null
 
+  const requiresComercializadoraContext = !isAgenciaSelf && !subdistribuidorId && !!effectiveComercializadoraId
+
+  const isSubdistribuidorAccessDenied = currentUser?.userType === 'subdistribuidor' && agency && agency.parentId !== currentUser.id
+
   const filteredTaquillas = (taquillas || [])
     .filter(t => t.parentId === effectiveAgencyId)
     .filter(t => {
@@ -76,7 +80,7 @@ export function AgenciaTaquillasPage() {
     })
     .sort((a, b) => a.fullName.localeCompare(b.fullName, 'es', { sensitivity: 'base' }))
 
-  const allTaquillasOfAgency = (taquillas || []).filter(t => t.parentId === agencyId)
+  const allTaquillasOfAgency = (taquillas || []).filter(t => t.parentId === effectiveAgencyId)
   const activeCount = allTaquillasOfAgency.filter(t => t.isApproved).length
   const inactiveCount = allTaquillasOfAgency.filter(t => !t.isApproved).length
 
@@ -164,25 +168,25 @@ export function AgenciaTaquillasPage() {
     )
   }
   
-  // Para otras vistas, verificar comercializadora y agencia
-  if (!isAgenciaSelf && (!comercializadora || !agency)) {
+  // Para otras vistas, verificar agencia; comercializadora solo cuando la ruta realmente lo requiere
+  if (!isAgenciaSelf && (!agency || (requiresComercializadoraContext && !comercializadora))) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-2 text-sm">
           <button
-            onClick={() => navigate('/comercializadoras')}
+            onClick={() => navigate('/comercializadores')}
             className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
           >
-            Comercializadoras
+            Comercializadores
           </button>
           <span className="text-muted-foreground">/</span>
-          {comercializadora ? (
+          {agency ? (
             <>
               <button
-                onClick={() => navigate(`/comercializadoras/${comercializadoraId}/agencias`)}
+                onClick={() => navigate(`/comercializadores/${effectiveComercializadoraId}/agencias`)}
                 className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
               >
-                {comercializadora.name}
+                {comercializadora?.name || 'Comercializador'}
               </button>
               <span className="text-muted-foreground">/</span>
               <span className="font-medium text-foreground">No encontrada</span>
@@ -193,9 +197,20 @@ export function AgenciaTaquillasPage() {
         </div>
         <div className="flex flex-col items-center justify-center py-12">
           <p className="text-lg font-medium">
-            {!comercializadora ? 'Comercializadora no encontrada' : 'Agencia no encontrada'}
+            {!agency ? 'Agencia no encontrada' : 'Comercializadora no encontrada'}
           </p>
           <p className="text-muted-foreground">El recurso solicitado no existe</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isSubdistribuidorAccessDenied) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col items-center justify-center py-12">
+          <p className="text-lg font-medium">Acceso restringido</p>
+          <p className="text-muted-foreground">No tienes permisos sobre las taquillas de esta agencia</p>
         </div>
       </div>
     )
@@ -207,23 +222,23 @@ export function AgenciaTaquillasPage() {
       {!isAgenciaSelf && (
         <div className="flex items-center gap-2 text-sm">
           <button
-            onClick={() => navigate('/comercializadoras')}
+            onClick={() => navigate('/comercializadores')}
             className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
           >
-            Comercializadoras
+            Comercializadores
           </button>
           <span className="text-muted-foreground">/</span>
           <button
-            onClick={() => navigate(`/comercializadoras/${effectiveComercializadoraId}/${subdistribuidor ? 'subdistribuidores' : 'agencias'}`)}
+            onClick={() => navigate(`/comercializadores/${effectiveComercializadoraId}/${subdistribuidor ? 'subdistribuidores' : 'agencias'}`)}
             className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
           >
-            {comercializadora.name}
+            {comercializadora?.name || 'Comercializador'}
           </button>
           {subdistribuidor && (
             <>
               <span className="text-muted-foreground">/</span>
               <button
-                onClick={() => navigate(`/comercializadoras/${effectiveComercializadoraId}/subdistribuidores/${subdistribuidorId}/agencias`)}
+                onClick={() => navigate(`/comercializadores/${effectiveComercializadoraId}/subdistribuidores/${subdistribuidorId}/agencias`)}
                 className="text-muted-foreground hover:text-primary transition-colors cursor-pointer"
               >
                 {subdistribuidor.name}

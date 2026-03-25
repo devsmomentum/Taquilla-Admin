@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Toaster } from '@/components/ui/sonner'
 import { useApp } from '@/contexts/AppContext'
 import { useLotteryTypePreference } from '@/contexts/LotteryTypeContext'
+import { GlobalUserSearch } from '@/components/layout/GlobalUserSearch'
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -176,7 +177,16 @@ export function MainLayout() {
                 Gestión de Loterías
               </h1>
             </div>
-            <div className="flex items-center gap-3">
+
+            <div className="hidden lg:block flex-1 max-w-lg">
+              <GlobalUserSearch />
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="lg:hidden">
+                <GlobalUserSearch compact />
+              </div>
+
               <div className="flex items-center gap-2">
                 <span className="hidden sm:inline text-xs text-slate-300">Lotería</span>
                 <Select value={lotteryType} onValueChange={(v) => setLotteryType(v as any)}>

@@ -15,7 +15,7 @@ import { LotteryDialog } from "@/components/LotteryDialog";
 import { useApp } from "@/contexts/AppContext";
 import { useLotteryTypePreference } from "@/contexts/LotteryTypeContext";
 import { filterLotteries } from "@/lib/filter-utils";
-import { formatCurrency } from "@/lib/pot-utils";
+import { formatCurrency, formatHour12 } from "@/lib/pot-utils";
 import { supabase } from "@/lib/supabase";
 import { Lottery } from "@/lib/types";
 import { toast } from "sonner";
@@ -165,7 +165,9 @@ export function LotteriesPage() {
 
     const { data, error } = await supabase
       .from("pollo_lleno_pot")
-      .select("id, created_at, amount_pot, inicial_pot, admin_pot, amount_to_pay")
+      .select(
+        "id, created_at, amount_pot, inicial_pot, admin_pot, amount_to_pay",
+      )
       .gte("created_at", dayStartUtc)
       .lt("created_at", dayEndExclusiveUtc)
       .order("created_at", { ascending: false })
@@ -185,7 +187,7 @@ export function LotteriesPage() {
     setPotAmountInput(
       pot?.amount_pot !== null && pot?.amount_pot !== undefined
         ? String(pot.amount_pot)
-        : ""
+        : "",
     );
     setPotLoading(false);
   };
@@ -235,19 +237,23 @@ export function LotteriesPage() {
   };
 
   const isLolaLottery = (lottery: Lottery) => lottery.id.startsWith("lola-");
-  const isPolloLlenoLottery = (lottery: Lottery) => lottery.id === "pollo-lleno";
+  const isPolloLlenoLottery = (lottery: Lottery) =>
+    lottery.id === "pollo-lleno";
 
-  const polloLlenoLottery = useMemo<Lottery>(() => ({
-    id: "pollo-lleno",
-    name: "Pollo Lleno 8pm",
-    openingTime: "05:00",
-    closingTime: "19:55",
-    drawTime: "20:00",
-    isActive: true,
-    playsTomorrow: false,
-    prizes: [],
-    createdAt: "",
-  }), []);
+  const polloLlenoLottery = useMemo<Lottery>(
+    () => ({
+      id: "pollo-lleno",
+      name: "Pollo Lleno 8pm",
+      openingTime: "05:00",
+      closingTime: "19:55",
+      drawTime: "20:00",
+      isActive: true,
+      playsTomorrow: false,
+      prizes: [],
+      createdAt: "",
+    }),
+    [],
+  );
 
   const visibleLotteries = useMemo(() => {
     if (lotteryType === "lola") {
@@ -532,7 +538,7 @@ export function LotteriesPage() {
                       <span>
                         Abre:{" "}
                         <span className="font-medium text-foreground">
-                          {lottery.openingTime}
+                          {formatHour12(lottery.openingTime)}
                         </span>
                       </span>
                     </div>
@@ -542,7 +548,7 @@ export function LotteriesPage() {
                       <span>
                         Cierra:{" "}
                         <span className="font-medium text-foreground">
-                          {lottery.closingTime}
+                          {formatHour12(lottery.closingTime)}
                         </span>
                       </span>
                     </div>
@@ -552,7 +558,7 @@ export function LotteriesPage() {
                       <span>
                         Jugada:{" "}
                         <span className="font-medium text-foreground">
-                          {lottery.drawTime}
+                          {formatHour12(lottery.drawTime)}
                         </span>
                       </span>
                     </div>
@@ -772,7 +778,9 @@ export function LotteriesPage() {
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
             <DialogTitle>Pote Pollo Lleno</DialogTitle>
-            <DialogDescription>Información del pote del día actual</DialogDescription>
+            <DialogDescription>
+              Información del pote del día actual
+            </DialogDescription>
           </DialogHeader>
 
           {potLoading ? (
@@ -787,36 +795,79 @@ export function LotteriesPage() {
             <div className="space-y-4">
               {potData ? (
                 <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-lg border bg-muted/30 p-3">
-                      <p className="text-xs text-muted-foreground">Pote actual</p>
-                      <p className="text-lg font-semibold">
-                        {formatCurrency(Number(potData.amount_pot || 0))}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/30 p-3">
-                      <p className="text-xs text-muted-foreground">Pote administrador</p>
-                      <p className="text-lg font-semibold">
-                        {formatCurrency(Number(potData.admin_pot || 0))}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/30 p-3">
-                      <p className="text-xs text-muted-foreground">A pagar</p>
-                      <p className="text-lg font-semibold text-amber-600">
-                        {formatCurrency(Number(potData.amount_to_pay || 0))}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/30 p-3">
-                      <p className="text-xs text-muted-foreground">Pote inicial</p>
-                      <p className="text-lg font-semibold">
-                        {formatCurrency(Number(potData.inicial_pot || 0))}
-                      </p>
-                    </div>
-                  </div>
+                  {(() => {
+                    const ventas = Number(potData.amount_pot || 0);
+                    const acumuladoInicial = Number(potData.inicial_pot || 0);
+                    const utilidad = Number(potData.admin_pot || 0);
+                    const parte40 = ventas * 0.4;
+                    const parte25 = ventas * 0.25;
+
+                    return (
+                      <>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-lg border bg-muted/30 p-3">
+                            <p className="text-xs text-muted-foreground">
+                              Ventas
+                            </p>
+                            <p className="text-lg font-semibold">
+                              {formatCurrency(ventas)}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border bg-muted/30 p-3">
+                            <p className="text-xs text-muted-foreground">
+                              Acumulado Inicial
+                            </p>
+                            <p className="text-lg font-semibold">
+                              {formatCurrency(acumuladoInicial)}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border bg-amber-50 border-amber-200 p-3">
+                            <p className="text-xs text-amber-700">
+                              65% Repartir
+                            </p>
+                            <p className="text-lg font-semibold text-amber-700">
+                              {formatCurrency(ventas)}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border bg-emerald-50 border-emerald-200 p-3">
+                            <p className="text-xs text-emerald-700">Utilidad</p>
+                            <p className="text-lg font-semibold text-emerald-700">
+                              {formatCurrency(utilidad)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border p-3 space-y-2">
+                          <p className="text-sm font-medium">
+                            Desglose del 65%
+                          </p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="rounded-md bg-muted/30 p-2">
+                              <p className="text-xs text-muted-foreground">
+                                40%
+                              </p>
+                              <p className="font-semibold">
+                                {formatCurrency(parte40)}
+                              </p>
+                            </div>
+                            <div className="rounded-md bg-muted/30 p-2">
+                              <p className="text-xs text-muted-foreground">
+                                25%
+                              </p>
+                              <p className="font-semibold">
+                                {formatCurrency(parte25)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </>
               ) : (
                 <div className="py-6 text-center text-sm text-muted-foreground">
-                  No hay pote registrado para el día de hoy, puedes crearlo ingresando el monto.
+                  No hay pote registrado para el día de hoy, puedes crearlo
+                  ingresando el monto.
                 </div>
               )}
 
@@ -847,8 +898,8 @@ export function LotteriesPage() {
                   ? "Guardando..."
                   : "Creando..."
                 : potData
-                ? "Guardar"
-                : "Crear"}
+                  ? "Guardar"
+                  : "Crear"}
             </Button>
           </DialogFooter>
         </DialogContent>

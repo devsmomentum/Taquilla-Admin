@@ -442,6 +442,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return allComercializadoras.filter(c => c.id === currentUser.parentId)
     }
 
+    // Si es subdistribuidor, ve su comercializadora padre
+    if (currentUser.userType === 'subdistribuidor') {
+      return allComercializadoras.filter(c => c.id === currentUser.parentId)
+    }
+
     // Si es admin con permiso '*', ve todas las comercializadoras
     if (currentUser.userType === 'admin' || !currentUser.userType) {
       const hasFullAccess = currentUser.all_permissions.includes('*')
